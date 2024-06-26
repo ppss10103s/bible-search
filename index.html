@@ -3,15 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>聖經經文搜索</title>
+    <title>✦咻咻查聖經✦</title>
     <style>
         .highlight {
             background-color: yellow;
         }
+        .copy-button {
+            margin-left: 10px;
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
+        .alert {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            opacity: 1;
+            transition: opacity 0.6s;
+            margin-bottom: 15px;
+        }
+        .closebtn {
+            margin-left: 15px;
+            color: white;
+            font-weight: bold;
+            float: right;
+            font-size: 22px;
+            line-height: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .closebtn:hover {
+            color: black;
+        }
     </style>
 </head>
 <body>
-    <h1>聖經經文搜索</h1>
+    <h1>✦咻咻查聖經✦</h1>
+    <p>輸入經文參考，如：太2.1、創1.1、賽50:1、詩23</p>
     <input type="text" id="searchInput" placeholder="輸入經文參考">
     <p id="result"></p>
     <input type="text" id="keywordInput" placeholder="輸入關鍵字">
@@ -19,7 +47,6 @@
     <div id="keywordResult"></div>
 
     <script>
-        // 中英文書名對照表
         const bookMap = {
             '創': 'Gen', '創世記': 'Gen',
             '出': 'Exo', '出埃及記': 'Exo',
@@ -89,14 +116,13 @@
             '啟': 'Rev', '啟示錄': 'Rev'
         };
 
-        // 加載 CSV 文件的函數
         function loadCSV(callback) {
             const xhr = new XMLHttpRequest();
             xhr.open('GET', 'bible.csv', true);
             xhr.setRequestHeader('Content-Type', 'text/csv; charset=UTF-8');
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
-                    const bomRemovedText = xhr.responseText.replace(/^\uFEFF/, ''); // 移除 BOM
+                    const bomRemovedText = xhr.responseText.replace(/^\uFEFF/, '');
                     callback(bomRemovedText);
                 }
             };
@@ -105,10 +131,9 @@
 
         let bibleData = [];
 
-        // 解析 CSV 文件的函數
         function parseCSV(data) {
             const lines = data.split('\n');
-            console.log("CSV 行數:", lines.length); // 調試輸出
+            console.log("CSV 行數:", lines.length);
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].split(',');
                 if (line.length >= 4) {
@@ -120,131 +145,120 @@
                     });
                 }
             }
-            console.log("解析後的數據:", bibleData); // 調試輸出
+            console.log("解析後的數據:", bibleData);
         }
 
-        // 搜索經文的函數
         function searchVerse() {
             const input = document.getElementById('searchInput').value.trim();
             const resultElement = document.getElementById('result');
             resultElement.innerHTML = '';
 
-            // 定義匹配的正則表達式
-            const regexList = [
-                /^(\D{1,4})\s(\d+)\s(\d+)$/, // 書名+章+節，中間有空格，如：林後10 9
-                /^(\D{1,4})\s(\d+):(\d+)$/, // 書名+章+節，中間有空格並用冒號，如：林後10:9
-                /^(\D{1,4})(\d+)[章|:|\.|．](\d+)$/, // 書名+章+節，如：提後9章9節
-                /^(\D{1,4})(\D+)(\d+)$/, // 書名+中文章+節，如：提後九9
-                /^(\D{1,4})(\d+)\:?(\d+)$/ // 書名+章+節，如：提後9:9
-            ];
-
-            let match = null;
-            for (let regex of regexList) {
-                match = input.match(regex);
-                if (match) {
-                    break;
-                }
+            // 檢查是否有空格
+            if (input.includes(' ')) {
+                resultElement.innerHTML = '輸入格式錯誤。';
+                return;
             }
 
+            const regex = /^(\D{1,4})(\d+)[章|:|\.|．]?(\d+)?$/;
+
+            const match = input.match(regex);
             if (match) {
-                let chineseBook = match[1].trim();
-                let chapter = match[2].replace('章', '').trim();
-                let verse = match[3].trim();
-                chapter = chineseNumbersToArabic(chapter);
+                const chineseBook = match[1].trim();
+                const chapter = match[2].trim();
+                const verse = match[3] ? match[3].trim() : null;
                 const englishBook = bookMap[chineseBook];
 
-                console.log("搜索參數:", chineseBook, chapter, verse, englishBook); // 調試輸出
+                console.log("搜索參數:", chineseBook, chapter, verse, englishBook);
 
                 if (englishBook) {
-                    let found = false;
-                    for (let i = 0; i < bibleData.length; i++) {
-                        if (bibleData[i].book === englishBook) {
-                            if (bibleData[i].chapter === chapter) {
-                                if (bibleData[i].verse === verse) {
-                                    resultElement.innerHTML = bibleData[i].text;
-                                    found = true;
-                                    break;
-                                }
+                    let resultText = '';
+
+                    if (verse === null) {
+                        bibleData.forEach(entry => {
+                            if (entry.book === englishBook && entry.chapter === chapter) {
+                                resultText += `${entry.verse}. ${entry.text} `;
                             }
-                        }
+                        });
+                    } else {
+                        bibleData.forEach(entry => {
+                            if (entry.book === englishBook && entry.chapter === chapter && entry.verse === verse) {
+                                resultText = entry.text;
+                            }
+                        });
                     }
-                    if (!found) {
-                        if (!bibleData.some(b => b.book === englishBook)) {
-                            resultElement.innerHTML = '查無此書名。';
-                        } else if (!bibleData.some(b => b.book === englishBook && b.chapter === chapter)) {
-                            resultElement.innerHTML = '查無此章。';
-                        } else if (!bibleData.some(b => b.book === englishBook && b.chapter === chapter && b.verse === verse)) {
-                            resultElement.innerHTML = '查無此節。';
+
+                    if (resultText) {
+                        resultElement.innerHTML = resultText;
+                        if (verse !== null) {
+                            resultElement.innerHTML += `<span class="copy-button" onclick="copyToClipboard('${resultText}')">複製</span>`;
                         }
+                    } else {
+                        resultElement.innerHTML = '查無此經文。';
                     }
                 } else {
-                    resultElement.innerHTML = '查無此書名。';
+                    resultElement.innerHTML = '查無此卷。';
                 }
             } else {
-                resultElement.innerHTML = '查無此書名、章或節。';
+                resultElement.innerHTML = '查無此卷、章或節。';
             }
         }
 
-// 搜索關鍵字的函數
-function searchKeyword() {
-    const input = document.getElementById('keywordInput').value.trim();
-    const resultElement = document.getElementById('keywordResult');
-    resultElement.innerHTML = '';
+        function searchKeyword() {
+            const input = document.getElementById('keywordInput').value.trim();
+            const resultElement = document.getElementById('keywordResult');
+            resultElement.innerHTML = '';
 
-    const keyword = input;
-    const regex = new RegExp(`(${keyword})`, 'gi');
-    let results = '';
+            const keywords = input.split(' ').filter(keyword => keyword.trim() !== '');
+            const regex = new RegExp(`(${keywords.join('|')})`, 'gi');
+            let results = '';
 
-    bibleData.forEach(entry => {
-        if (entry.text.includes(keyword)) {
-            const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
-            const chineseBook = Object.keys(bookMap).find(key => bookMap[key] === entry.book);
-            results += `<p>${chineseBook} ${entry.chapter}:${entry.verse} - ${highlightedText}</p>`;
-        }
-    });
-
-    if (results) {
-        resultElement.innerHTML = results;
-    } else {
-        resultElement.innerHTML = '查無此關鍵字。';
-    }
-}
-
-        // 中文數字轉阿拉伯數字的函數
-        function chineseNumbersToArabic(chineseNum) {
-            const chineseNumMap = {
-                '零': 0,
-                '一': 1,
-                '二': 2,
-                '三': 3,
-                '四': 4,
-                '五': 5,
-                '六': 6,
-                '七': 7,
-                '八': 8,
-                '九': 9
-            };
-            let arabicNum = '';
-            for (let char of chineseNum) {
-                if (chineseNumMap[char] !== undefined) {
-                    arabicNum += chineseNumMap[char];
-                } else {
-                    arabicNum += char; // 保留非中文數字字符
+            let count = 0;
+            bibleData.forEach(entry => {
+                if (keywords.every(keyword => entry.text.includes(keyword))) {
+                    count++;
+                    const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
+                    const chineseBook = Object.keys(bookMap).find(key => bookMap[key] === entry.book);
+                    results += `<p>${chineseBook} ${entry.chapter}:${entry.verse} - ${highlightedText}<span class="copy-button" onclick="copyToClipboard('${entry.text}')">複製</span></p>`;
                 }
+            });
+
+            if (results) {
+                resultElement.innerHTML = `<p>總共找到 ${count} 個經文包含此關鍵字。</p>` + results;
+            } else {
+                resultElement.innerHTML = '查無此關鍵字。';
             }
-            return arabicNum;
         }
 
-        // 頁面加載時加載 CSV 文件並設置事件監聽
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            showAlert('經文已複製');
+        }
+
+        function showAlert(message) {
+            const alertBox = document.createElement('div');
+            alertBox.className = 'alert';
+            alertBox.innerHTML = message + '<span class="closebtn" onclick="this.parentElement.style.display=\'none\';">&times;</span>';
+            document.body.appendChild(alertBox);
+            setTimeout(() => {
+                alertBox.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(alertBox);
+                }, 600);
+            }, 2000);
+        }
+
         window.onload = function() {
             loadCSV(function(data) {
                 parseCSV(data);
 
-                // 設置輸入框的事件監聽
                 document.getElementById('searchInput').addEventListener('input', searchVerse);
             });
         };
     </script>
 </body>
 </html>
-
