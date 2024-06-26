@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聖經經文搜索</title>
+    <style>
+        .highlight {
+            background-color: yellow;
+        }
+    </style>
+</head>
+<body>
+    <h1>聖經經文搜索</h1>
+    <input type="text" id="searchInput" placeholder="輸入經文參考">
+    <p id="result"></p>
+    <input type="text" id="keywordInput" placeholder="輸入關鍵字">
+    <button onclick="searchKeyword()">搜索關鍵字</button>
+    <div id="keywordResult"></div>
+
+    <script>
+        // 中英文書名對照表
+        const bookMap = {
+            '創': 'Gen', '創世記': 'Gen',
+            '出': 'Exo', '出埃及記': 'Exo',
+            '利': 'Lev', '利未記': 'Lev',
+            '民': 'Num', '民數記': 'Num',
+            '申': 'Deu', '申命記': 'Deu',
+            '書': 'Jos', '約書亞記': 'Jos',
+            '士': 'Jdg', '士師記': 'Jdg',
+            '得': 'Rut', '路得記': 'Rut',
+            '撒上': '1Sa', '撒母耳記上': '1Sa',
+            '撒下': '2Sa', '撒母耳記下': '2Sa',
+            '王上': '1Ki', '列王記上': '1Ki',
+            '王下': '2Ki', '列王記下': '2Ki',
+            '代上': '1Ch', '歷代志上': '1Ch',
+            '代下': '2Ch', '歷代志下': '2Ch',
+            '拉': 'Ezr', '以斯拉記': 'Ezr',
+            '尼': 'Neh', '尼希米記': 'Neh',
+            '斯': 'Est', '以斯帖記': 'Est',
+            '伯': 'Job', '約伯記': 'Job',
+            '詩': 'Psa', '詩篇': 'Psa',
+            '箴': 'Pro', '箴言': 'Pro',
+            '傳': 'Ecc', '傳道書': 'Ecc',
+            '歌': 'Sng', '雅歌': 'Sng',
+            '賽': 'Isa', '以賽亞書': 'Isa',
+            '耶': 'Jer', '耶利米書': 'Jer',
+            '哀': 'Lam', '耶利米哀歌': 'Lam',
+            '結': 'Eze', '以西結書': 'Eze',
+            '但': 'Dan', '但以理書': 'Dan',
+            '何': 'Hos', '何西阿書': 'Hos',
+            '珥': 'Joe', '約珥書': 'Joe',
+            '摩': 'Amo', '阿摩司書': 'Amo',
+            '俄': 'Oba', '俄巴底亞書': 'Oba',
+            '拿': 'Jon', '約拿書': 'Jon',
+            '彌': 'Mic', '彌迦書': 'Mic',
+            '鴻': 'Nah', '那鴻書': 'Nah',
+            '哈': 'Hab', '哈巴谷書': 'Hab',
+            '番': 'Zep', '西番雅書': 'Zep',
+            '該': 'Hag', '哈該書': 'Hag',
+            '亞': 'Zec', '撒迦利亞書': 'Zec',
+            '瑪': 'Mal', '瑪拉基書': 'Mal',
+            '太': 'Mat', '馬太福音': 'Mat',
+            '可': 'Mar', '馬可福音': 'Mar',
+            '路': 'Luk', '路加福音': 'Luk',
+            '約': 'Joh', '約翰福音': 'Joh',
+            '徒': 'Act', '使徒行傳': 'Act',
+            '羅': 'Rom', '羅馬書': 'Rom',
+            '林前': '1Co', '哥林多前書': '1Co',
+            '林後': '2Co', '哥林多後書': '2Co',
+            '加': 'Gal', '加拉太書': 'Gal',
+            '弗': 'Eph', '以弗所書': 'Eph',
+            '腓': 'Phl', '腓立比書': 'Phl',
+            '西': 'Col', '歌羅西書': 'Col',
+            '帖前': '1Th', '帖撒羅尼迦前書': '1Th',
+            '帖後': '2Th', '帖撒羅尼迦後書': '2Th',
+            '提前': '1Ti', '提摩太前書': '1Ti',
+            '提後': '2Ti', '提摩太後書': '2Ti',
+            '多': 'Tit', '提多書': 'Tit',
+            '門': 'Phm', '腓利門書': 'Phm',
+            '來': 'Heb', '希伯來書': 'Heb',
+            '雅': 'Jas', '雅各書': 'Jas',
+            '彼前': '1Pe', '彼得前書': '1Pe',
+            '彼後': '2Pe', '彼得後書': '2Pe',
+            '約一': '1Jo', '約翰一書': '1Jo',
+            '約二': '2Jo', '約翰二書': '2Jo',
+            '約三': '3Jo', '約翰三書': '3Jo',
+            '猶': 'Jud', '猶大書': 'Jud',
+            '啟': 'Rev', '啟示錄': 'Rev'
+        };
+
+        // 加載 CSV 文件的函數
+        function loadCSV(callback) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', 'bible.csv', true);
+            xhr.setRequestHeader('Content-Type', 'text/csv; charset=UTF-8');
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    const bomRemovedText = xhr.responseText.replace(/^\uFEFF/, ''); // 移除 BOM
+                    callback(bomRemovedText);
+                }
+            };
+            xhr.send();
+        }
+
+        let bibleData = [];
+
+        // 解析 CSV 文件的函數
+        function parseCSV(data) {
+            const lines = data.split('\n');
+            console.log("CSV 行數:", lines.length); // 調試輸出
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].split(',');
+                if (line.length >= 4) {
+                    bibleData.push({
+                        book: line[0].trim(),
+                        chapter: line[1].trim(),
+                        verse: line[2].trim(),
+                        text: line[3].trim()
+                    });
+                }
+            }
+            console.log("解析後的數據:", bibleData); // 調試輸出
+        }
+
+        // 搜索經文的函數
+        function searchVerse() {
+            const input = document.getElementById('searchInput').value.trim();
+            const resultElement = document.getElementById('result');
+            resultElement.innerHTML = '';
+
+            // 定義匹配的正則表達式
+            const regexList = [
+                /^(\D{1,4})\s(\d+)\s(\d+)$/, // 書名+章+節，中間有空格，如：林後10 9
+                /^(\D{1,4})\s(\d+):(\d+)$/, // 書名+章+節，中間有空格並用冒號，如：林後10:9
+                /^(\D{1,4})(\d+)[章|:|\.|．](\d+)$/, // 書名+章+節，如：提後9章9節
+                /^(\D{1,4})(\D+)(\d+)$/, // 書名+中文章+節，如：提後九9
+                /^(\D{1,4})(\d+)\:?(\d+)$/ // 書名+章+節，如：提後9:9
+            ];
+
+            let match = null;
+            for (let regex of regexList) {
+                match = input.match(regex);
+                if (match) {
+                    break;
+                }
+            }
+
+            if (match) {
+                let chineseBook = match[1].trim();
+                let chapter = match[2].replace('章', '').trim();
+                let verse = match[3].trim();
+                chapter = chineseNumbersToArabic(chapter);
+                const englishBook = bookMap[chineseBook];
+
+                console.log("搜索參數:", chineseBook, chapter, verse, englishBook); // 調試輸出
+
+                if (englishBook) {
+                    let found = false;
+                    for (let i = 0; i < bibleData.length; i++) {
+                        if (bibleData[i].book === englishBook) {
+                            if (bibleData[i].chapter === chapter) {
+                                if (bibleData[i].verse === verse) {
+                                    resultElement.innerHTML = bibleData[i].text;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    if (!found) {
+                        if (!bibleData.some(b => b.book === englishBook)) {
+                            resultElement.innerHTML = '查無此書名。';
+                        } else if (!bibleData.some(b => b.book === englishBook && b.chapter === chapter)) {
+                            resultElement.innerHTML = '查無此章。';
+                        } else if (!bibleData.some(b => b.book === englishBook && b.chapter === chapter && b.verse === verse)) {
+                            resultElement.innerHTML = '查無此節。';
+                        }
+                    }
+                } else {
+                    resultElement.innerHTML = '查無此書名。';
+                }
+            } else {
+                resultElement.innerHTML = '查無此書名、章或節。';
+            }
+        }
+
+// 搜索關鍵字的函數
+function searchKeyword() {
+    const input = document.getElementById('keywordInput').value.trim();
+    const resultElement = document.getElementById('keywordResult');
+    resultElement.innerHTML = '';
+
+    const keyword = input;
+    const regex = new RegExp(`(${keyword})`, 'gi');
+    let results = '';
+
+    bibleData.forEach(entry => {
+        if (entry.text.includes(keyword)) {
+            const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
+            const chineseBook = Object.keys(bookMap).find(key => bookMap[key] === entry.book);
+            results += `<p>${chineseBook} ${entry.chapter}:${entry.verse} - ${highlightedText}</p>`;
+        }
+    });
+
+    if (results) {
+        resultElement.innerHTML = results;
+    } else {
+        resultElement.innerHTML = '查無此關鍵字。';
+    }
+}
+
+        // 中文數字轉阿拉伯數字的函數
+        function chineseNumbersToArabic(chineseNum) {
+            const chineseNumMap = {
+                '零': 0,
+                '一': 1,
+                '二': 2,
+                '三': 3,
+                '四': 4,
+                '五': 5,
+                '六': 6,
+                '七': 7,
+                '八': 8,
+                '九': 9
+            };
+            let arabicNum = '';
+            for (let char of chineseNum) {
+                if (chineseNumMap[char] !== undefined) {
+                    arabicNum += chineseNumMap[char];
+                } else {
+                    arabicNum += char; // 保留非中文數字字符
+                }
+            }
+            return arabicNum;
+        }
+
+        // 頁面加載時加載 CSV 文件並設置事件監聽
+        window.onload = function() {
+            loadCSV(function(data) {
+                parseCSV(data);
+
+                // 設置輸入框的事件監聽
+                document.getElementById('searchInput').addEventListener('input', searchVerse);
+            });
+        };
+    </script>
+</body>
+</html>
+
