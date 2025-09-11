@@ -8,9 +8,7 @@
   <link rel="icon" href="data:,">
   <style>
     .highlight { background-color: yellow; }
-    .copy-button {
-      margin-left: 10px; cursor: pointer; color: blue; text-decoration: underline;
-    }
+    .copy-button { margin-left: 10px; cursor: pointer; color: blue; text-decoration: underline; }
     .alert {
       padding: 10px; background-color: #4CAF50; color: white; opacity: 1;
       transition: opacity 0.6s; margin-bottom: 15px;
@@ -77,7 +75,7 @@
       '亞':'Zec','撒迦利亞書':'Zec',
       '瑪':'Mal','瑪拉基書':'Mal',
       '太':'Mat','馬太福音':'Mat',
-      '可':'Mak','馬可福音':'Mak',  // 確認你的 CSV 也用 Mak
+      '可':'Mak','馬可福音':'Mak',  // 請確認 CSV 也用 Mak
       '路':'Luk','路加福音':'Luk',
       '約':'Jhn','約翰福音':'Jhn',
       '徒':'Act','使徒行傳':'Act',
@@ -111,40 +109,39 @@
 
     // ====== 啟動：先綁事件，再載 CSV ======
     window.addEventListener('load', () => {
-      const searchInput = document.getElementById('searchInput');
+      const searchInput  = document.getElementById('searchInput');
       const keywordInput = document.getElementById('keywordInput');
       const keywordBtn   = document.getElementById('keywordBtn');
 
-      // 經文搜尋：輸入時延遲觸發
       searchInput.addEventListener('input', debounce(searchVerse, 200));
 
-      // 關鍵字搜尋：按鈕或 Enter 觸發
       keywordBtn.addEventListener('click', searchKeyword);
-      keywordInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') searchKeyword();
-      });
+      keywordInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchKeyword(); });
 
       document.getElementById('result').textContent = '資料載入中…';
       loadCSVWithRetry(); // 開始載 CSV
     });
 
-    // ====== CSV 載入（含重試與避開快取） ======
+    // ====== CSV 載入：先走快取；失敗才 no-store + cache-busting ======
     async function loadCSVWithRetry(maxAttempts = 3) {
       let lastErr;
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-          const bust = (attempt === 1) ? '' : `?v=${Date.now()}`; // 第二次起加參數
-          const res = await fetch(`./bible.csv${bust}`, {
-            cache: 'no-store',
-            headers: { 'cache-control': 'no-cache', 'pragma': 'no-cache' }
-          });
+          const bust = (attempt === 1) ? '' : `?v=${Date.now()}`;
+          const opts = (attempt === 1)
+            ? { cache: 'default' } // 允許使用瀏覽器/Pages 的 ETag 快取
+            : { cache: 'no-store', headers: { 'cache-control': 'no-cache', 'pragma': 'no-cache' } };
+
+          const res = await fetch(`./bible.csv${bust}`, opts);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const text = (await res.text()).replace(/^\uFEFF/, ''); // 去 BOM
-          parseCSV(text);
+          const text = (await res.text()).replace(/^\uFEFF/, '');
+
+          // 交給 Web Worker 解析，避免卡住主執行緒
+          document.getElementById('result').textContent = '資料下載完成，解析中…';
+          await parseCSVInWorker(text);
+
           bibleReady = true;
           loadingError = null;
-
-          // 若使用者已輸入，就自動跑一次；否則清掉「載入中」
           if (document.getElementById('searchInput').value.trim()) {
             searchVerse();
           } else {
@@ -156,30 +153,49 @@
           await delay(300 * attempt); // 指數回退
         }
       }
-      // 全部失敗
       bibleReady = false;
       loadingError = lastErr?.message || '載入失敗';
       document.getElementById('result').textContent =
         '載入聖經資料失敗（可能是暫時性網路或快取問題）。請重新整理或稍後再試。';
     }
 
-    function parseCSV(data) {
-      const lines = data.split(/\r?\n/);
-      bibleData = [];
-      // 預設第一行是表頭：book,chapter,verse,text
-      for (let i = 1; i < lines.length; i++) {
-        const row = lines[i];
-        if (!row) continue;
-        const parts = row.split(',');
-        if (parts.length >= 4) {
-          bibleData.push({
-            book:    parts[0].trim(),
-            chapter: parts[1].trim(),
-            verse:   parts[2].trim(),
-            text:    parts.slice(3).join(',').trim() // 內文若含逗號，用 join 還原
-          });
-        }
-      }
+    // ====== 用 Web Worker 解析 CSV ======
+    function parseCSVInWorker(csvText) {
+      return new Promise((resolve, reject) => {
+        const workerCode = `
+          self.onmessage = (e) => {
+            const data = e.data;
+            const lines = data.split(/\\r?\\n/);
+            const out = [];
+            for (let i = 1; i < lines.length; i++) {
+              const row = lines[i];
+              if (!row) continue;
+              const parts = row.split(',');
+              if (parts.length >= 4) {
+                out.push({
+                  book: parts[0].trim(),
+                  chapter: parts[1].trim(),
+                  verse: parts[2].trim(),
+                  text: parts.slice(3).join(',').trim()
+                });
+              }
+            }
+            postMessage(out);
+          };
+        `;
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const worker = new Worker(URL.createObjectURL(blob));
+        worker.onmessage = (ev) => {
+          bibleData = ev.data || [];
+          worker.terminate();
+          resolve();
+        };
+        worker.onerror = (err) => {
+          worker.terminate();
+          reject(err);
+        };
+        worker.postMessage(csvText);
+      });
     }
 
     // ====== 經文搜尋 ======
@@ -192,7 +208,6 @@
         return;
       }
       resultElement.innerHTML = '';
-
       if (!input) return;
       if (input.includes(' ')) { resultElement.textContent = '輸入格式錯誤。'; return; }
 
@@ -210,24 +225,22 @@
 
       let resultText = '';
       if (verse === null) {
-        bibleData.forEach(e => {
+        for (const e of bibleData) {
           if (e.book === englishBook && e.chapter === chapter) {
             resultText += `${e.verse}. ${e.text} `;
           }
-        });
+        }
       } else {
-        bibleData.some(e => {
+        for (const e of bibleData) {
           if (e.book === englishBook && e.chapter === chapter && e.verse === verse) {
-            resultText = e.text; return true;
+            resultText = e.text; break;
           }
-          return false;
-        });
+        }
       }
 
       if (resultText) {
         resultElement.innerHTML = resultText;
         if (verse !== null) {
-          // 用 JSON.stringify 避免引號造成 HTML 斷裂
           resultElement.innerHTML +=
             `<span class="copy-button" onclick='copyToClipboard(${JSON.stringify(resultText)})'>複製</span>`;
         }
@@ -254,7 +267,7 @@
 
       let results = '';
       let count = 0;
-      bibleData.forEach(entry => {
+      for (const entry of bibleData) {
         if (keywords.every(k => entry.text.includes(k))) {
           count++;
           const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
@@ -262,7 +275,7 @@
           results += `<p>${chineseBook} ${entry.chapter}:${entry.verse} - ${highlightedText}` +
                      `<span class="copy-button" onclick='copyToClipboard(${JSON.stringify(entry.text)})'>複製</span></p>`;
         }
-      });
+      }
 
       resultElement.innerHTML = results
         ? `<p>總共找到 ${count} 個經文包含此關鍵字。</p>${results}`
