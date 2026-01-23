@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 ✦</title>
+  <title>✦ 咻咻查聖經 3.2 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -217,8 +217,8 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.1 ✦</h1>
-  <p class="subtitle">支援：太六3、1.7 (全經卷)、關鍵字排除 (-神)</p>
+  <h1>✦ 咻咻查聖經 3.2 ✦</h1>
+  <p class="subtitle">支援：太六3、1.7 (全經卷)、關鍵字排除 (我-神)</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
@@ -231,7 +231,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="範例：我 -神 (找有我但沒神的)">
+      <input type="text" id="keywordInput" placeholder="範例：我-神 (自動識別排除)">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -275,7 +275,7 @@
     '約三':'3Jn','約翰三書':'3Jn', '猶':'Jud','猶大書':'Jud', '啟':'Rev','啟示錄':'Rev'
   };
 
-  // 預先排序，避免 "約翰一書" 被誤判為 "約"
+  // 預先排序
   const sortedBookNames = Object.keys(bookMap).sort((a, b) => b.length - a.length);
 
   let bibleData = [];
@@ -385,7 +385,7 @@
     return num;
   }
 
-  // === 3. 核心：解析經文搜尋字串 (強化符號支援) ===
+  // === 3. 核心：解析經文搜尋字串 ===
   function parseSearchQuery(input) {
     input = input.replace(/\s+/g, ''); // 移除所有空格
     
@@ -401,7 +401,7 @@
       }
     }
 
-    // 3-2. 符號標準化：小數點、句號、逗號 -> 冒號
+    // 3-2. 符號標準化
     remain = remain.replace(/[.．。,，]/g, ':');
 
     let chapterStr = "";
@@ -417,7 +417,6 @@
       const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
       
       let splitIndex = -1;
-      // 找中西數字交界
       for (let i = 0; i < remain.length - 1; i++) {
          if (isCnDigit(remain[i]) && isDigit(remain[i+1])) {
              splitIndex = i + 1;
@@ -456,14 +455,12 @@
     let results = [];
     let title = "";
 
-    // A. 指定書卷搜尋 (太6:3)
     if (query.book) {
        if (!query.chapter) return;
        results = bibleData.filter(e => e.book === query.book && e.chapter === query.chapter && (query.verse === null || e.verse === query.verse));
        const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
        if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
     } 
-    // B. 全經卷搜尋 (6:3)
     else if (query.chapter && query.verse) {
         results = bibleData.filter(e => e.chapter === query.chapter && e.verse === query.verse);
         if (results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
@@ -481,11 +478,15 @@
     }
   }
 
-  // === 5. 關鍵字搜尋 (包含與排除) ===
+  // === 5. 關鍵字搜尋 (包含與排除 - 自動優化輸入) ===
   function initKeywordSearch() {
-    const input = document.getElementById('keywordInput').value.trim();
+    let input = document.getElementById('keywordInput').value.trim();
     if (!bibleReady) return;
     if (!input) { showToast('請輸入關鍵字'); return; }
+
+    // ★★★ 核心修正：自動將 "我-神" 轉換為 "我 -神" ★★★
+    // 邏輯：如果減號前不是空格，就強行補一個空格
+    input = input.replace(/([^\s])-/g, '$1 -');
 
     // 解析關鍵字
     const rawTokens = input.split(' ').filter(t => t.trim() !== '');
@@ -502,9 +503,8 @@
     
     currentIncludeKeywords = includes;
 
-    // 必須至少有一個包含關鍵字，否則資料量太大或無意義
     if (includes.length === 0) {
-        document.getElementById('keywordResult').innerHTML = '<div style="color:red; text-align:center;">請至少輸入一個正向關鍵字 (例如: 我 -神)</div>';
+        document.getElementById('keywordResult').innerHTML = '<div style="color:red; text-align:center;">請至少輸入一個正向關鍵字</div>';
         document.getElementById('paginationContainer').style.display = 'none';
         return;
     }
@@ -512,11 +512,11 @@
     // 篩選資料
     currentKeywordResults = [];
     for (const entry of bibleData) {
-      // AND 邏輯：必須包含所有正向詞
+      // AND 邏輯
       const hasAllIncludes = includes.every(key => entry.text.includes(key));
       if (!hasAllIncludes) continue;
 
-      // NOT 邏輯：不能包含任何反向詞
+      // NOT 邏輯
       const hasAnyExclude = excludes.some(key => entry.text.includes(key));
       if (hasAnyExclude) continue;
 
@@ -622,4 +622,3 @@
 </script>
 </body>
 </html>
-
