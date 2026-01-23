@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.2 ✦</title>
+  <title>✦ 咻咻查聖經 3.4 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -13,7 +13,8 @@
       --bg-color: #f5f5f5;
       --card-bg: #ffffff;
       --text-color: #333;
-      --highlight-color: #fff9c4; /* 搜尋高亮色 */
+      --highlight-color: #fff9c4; /* 搜尋關鍵字高亮 */
+      --selected-bg: #ffe0b2;    /* [新] 選取狀態背景色 (淺橘色) */
       --shadow: 0 4px 6px rgba(0,0,0,0.1);
       --radius: 12px;
     }
@@ -27,13 +28,13 @@
       margin: 0;
       padding: 20px;
       line-height: 1.6;
+      padding-bottom: 100px; /* 預留底部空間給浮動按鈕 */
     }
 
     /* === 2. 佈局容器 === */
     .container {
       max-width: 800px;
       margin: 0 auto;
-      padding-bottom: 60px;
     }
 
     h1 {
@@ -72,14 +73,9 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       font-size: 16px;
-      transition: border-color 0.3s;
       width: 100%;
     }
-
-    input[type="text"]:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
+    input[type="text"]:focus { outline: none; border-color: var(--primary-color); }
 
     button {
       background-color: var(--primary-color);
@@ -89,15 +85,11 @@
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
-      transition: background 0.3s;
       white-space: nowrap;
     }
-
-    button:hover {
-      background-color: #4e342e;
-    }
+    button:hover { background-color: #4e342e; }
     
-    /* === 5. 分頁跳轉樣式 (新功能) === */
+    /* === 5. 分頁區塊 === */
     .pagination {
         display: flex;
         justify-content: center;
@@ -117,28 +109,31 @@
         border-radius: 6px;
         font-size: 16px;
     }
-
-    .page-label {
-        color: #666;
-        font-size: 0.95rem;
-    }
-
     .jump-btn {
         padding: 8px 15px;
         background-color: var(--accent-color);
         font-size: 14px;
     }
 
-    /* === 6. 搜尋結果列表 === */
+    /* === 6. 搜尋結果列表 (核心修改) === */
     .result-item {
-      padding: 15px 0;
+      padding: 15px;
       border-bottom: 1px solid #eee;
       display: flex;
       flex-direction: column;
       gap: 8px;
+      cursor: pointer; /* 讓使用者知道可以點 */
+      transition: background-color 0.2s; /* 平滑變色 */
+      border-radius: 8px; /* 讓選取時邊角圓潤一點 */
     }
-
+    
     .result-item:last-child { border-bottom: none; }
+
+    /* [新] 選取狀態樣式 */
+    .result-item.selected {
+        background-color: var(--selected-bg);
+        border-color: transparent;
+    }
 
     .verse-ref {
       font-weight: bold;
@@ -158,7 +153,7 @@
       color: #000;
     }
 
-    /* === 7. 複製按鈕 === */
+    /* 單節複製按鈕 */
     .action-bar {
       display: flex;
       justify-content: flex-end;
@@ -172,42 +167,87 @@
       padding: 6px 12px;
       font-size: 0.85rem;
       border-radius: 20px;
+      z-index: 2; /* 確保按鈕在點擊層之上 */
     }
 
     .copy-btn:hover {
       background-color: #f0f0f0;
       color: #333;
+      border-color: #999;
     }
 
-    /* === 8. Toast 提示 === */
+    /* === 7. 浮動批次複製按鈕 (FAB) === */
+    .fab-container {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%) translateY(150px); /* 預設隱藏在下方 */
+        background-color: #333;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 50px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+        z-index: 100;
+        min-width: 250px;
+        justify-content: space-between;
+    }
+
+    .fab-container.show {
+        transform: translateX(-50%) translateY(0);
+    }
+
+    .fab-text { font-size: 0.95rem; font-weight: bold; }
+    
+    .fab-btn {
+        background-color: var(--selected-bg);
+        color: #5d4037;
+        border: none;
+        padding: 8px 18px;
+        border-radius: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    .fab-btn:active { transform: scale(0.95); }
+
+    /* 清除選取按鈕 */
+    .fab-close {
+        background: none;
+        border: none;
+        color: #aaa;
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0 5px;
+    }
+    .fab-close:hover { color: #fff; }
+
+    /* === Toast 提示 === */
     .toast {
       visibility: hidden;
-      min-width: 250px;
-      background-color: #333;
+      min-width: 200px;
+      background-color: rgba(0,0,0,0.8);
       color: #fff;
       text-align: center;
-      border-radius: 50px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 10px;
       position: fixed;
-      z-index: 99;
+      z-index: 101;
       left: 50%;
-      bottom: 30px;
-      transform: translateX(-50%);
+      top: 50%;
+      transform: translate(-50%, -50%);
       font-size: 14px;
       opacity: 0;
-      transition: opacity 0.3s, bottom 0.3s;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      transition: opacity 0.3s;
     }
+    .toast.show { visibility: visible; opacity: 1; }
 
-    .toast.show {
-      visibility: visible;
-      opacity: 1;
-      bottom: 50px;
-    }
-    
-    /* === 響應式調整 === */
+    /* RWD */
     @media (max-width: 600px) {
-      body { padding: 10px; }
+      body { padding: 10px; padding-bottom: 100px; }
       .card { padding: 15px; }
       h1 { font-size: 1.5rem; }
       #keywordBtn { width: 100%; }
@@ -217,13 +257,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.2 ✦</h1>
-  <p class="subtitle">支援：太六3、1.7 (全經卷)、關鍵字排除 (我-神)</p>
+  <h1>✦ 咻咻查聖經 3.4 ✦</h1>
+  <p class="subtitle">點擊經文即可多選・支援太六3・關鍵字排除</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="範例：太六3、6:3、1.7、詩23">
+      <input type="text" id="searchInput" placeholder="範例：太六3、詩23 (可全章搜尋)">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -231,7 +271,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="範例：我-神 (自動識別排除)">
+      <input type="text" id="keywordInput" placeholder="範例：我-神 (自動排除神)">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -246,10 +286,18 @@
   </div>
 </div>
 
-<div id="toast" class="toast">已複製經文</div>
+<div id="fab" class="fab-container">
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button class="fab-close" onclick="clearSelection()" title="取消選取">✕</button>
+        <span class="fab-text" id="fabText">已選 0 節</span>
+    </div>
+    <button class="fab-btn" onclick="copySelectedVerses()">複製全部</button>
+</div>
+
+<div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 卷名對照 (資料庫) ===
+  // === 資料庫對照表 ===
   const bookMap = {
     '創':'Gen','創世記':'Gen', '出':'Exo','出埃及記':'Exo', '利':'Lev','利未記':'Lev',
     '民':'Num','民數記':'Num', '申':'Deu','申命記':'Deu', '書':'Jos','約書亞記':'Jos',
@@ -275,74 +323,65 @@
     '約三':'3Jn','約翰三書':'3Jn', '猶':'Jud','猶大書':'Jud', '啟':'Rev','啟示錄':'Rev'
   };
 
-  // 預先排序
   const sortedBookNames = Object.keys(bookMap).sort((a, b) => b.length - a.length);
-
   let bibleData = [];
   let bibleReady = false;
   
-  // 分頁與搜尋狀態
+  // 狀態變數
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
-  let currentIncludeKeywords = []; // 用於高亮
+  let currentIncludeKeywords = []; 
+  
+  // [新] 儲存被選取的經文 ID (用 "卷:章:節" 當 key)
+  let selectedVerses = new Set();
+  
+  // 儲存當前渲染的資料，方便查找
+  let currentRenderedData = [];
 
   window.addEventListener('load', () => {
-    const searchInput  = document.getElementById('searchInput');
+    const searchInput = document.getElementById('searchInput');
     const keywordInput = document.getElementById('keywordInput');
-    const keywordBtn   = document.getElementById('keywordBtn');
+    const keywordBtn = document.getElementById('keywordBtn');
     
-    // 初始化 UI 
-    document.getElementById('result').innerHTML = '<span style="color:#888">資料庫載入中，請稍候...</span>';
+    document.getElementById('result').innerHTML = '<span style="color:#888">資料庫載入中...</span>';
 
-    // 綁定事件
     searchInput.addEventListener('input', debounce(searchVerse, 300));
     keywordBtn.addEventListener('click', () => initKeywordSearch());
     keywordInput.addEventListener('keydown', e => { if (e.key === 'Enter') initKeywordSearch(); });
-    
-    // 分頁輸入框 Enter
     document.getElementById('pageInput').addEventListener('keydown', e => { if (e.key === 'Enter') jumpToPage(); });
 
-    // 開始載入資料
     loadCSVWithRetry();
   });
 
-  // === 1. 資料載入 (Fetch + Worker) ===
+  // === 資料處理 ===
   async function loadCSVWithRetry(maxAttempts = 3) {
     let lastErr;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const bust = (attempt === 1) ? '' : `?v=${Date.now()}`;
-        const opts = (attempt === 1) ? { cache: 'default' } : { cache: 'no-store' };
-        
-        const res = await fetch(`./bible.csv${bust}`, opts);
+        const res = await fetch(`./bible.csv${bust}`, (attempt === 1) ? { cache: 'default' } : { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const text = (await res.text()).replace(/^\uFEFF/, ''); // 移除 BOM
-
+        const text = (await res.text()).replace(/^\uFEFF/, '');
         document.getElementById('result').innerHTML = '<span style="color:#666">資料處理中...</span>';
         await parseCSVInWorker(text);
-
         bibleReady = true;
         document.getElementById('result').innerHTML = '';
         if (document.getElementById('searchInput').value.trim()) searchVerse();
         return;
-      } catch (err) {
-        lastErr = err;
-        await delay(300 * attempt);
-      }
+      } catch (err) { lastErr = err; await delay(300 * attempt); }
     }
-    document.getElementById('result').innerHTML = `<span style="color:red">資料載入失敗，請確認 bible.csv 存在。</span>`;
+    document.getElementById('result').innerHTML = `<span style="color:red">資料載入失敗。</span>`;
   }
 
   function parseCSVInWorker(csvText) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const workerCode = `
         self.onmessage = (e) => {
           const lines = e.data.split(/\\r?\\n/);
           const out = [];
           for (let i = 1; i < lines.length; i++) {
-            const row = lines[i];
-            if (!row) continue;
+            const row = lines[i]; if (!row) continue;
             const parts = row.split(',');
             if (parts.length >= 4) {
               out.push({
@@ -358,16 +397,12 @@
       `;
       const blob = new Blob([workerCode], { type: 'application/javascript' });
       const worker = new Worker(URL.createObjectURL(blob));
-      worker.onmessage = (ev) => {
-        bibleData = ev.data || [];
-        worker.terminate();
-        resolve();
-      };
+      worker.onmessage = (ev) => { bibleData = ev.data || []; worker.terminate(); resolve(); };
       worker.postMessage(csvText);
     });
   }
 
-  // === 2. 工具函式：中文轉數字 ===
+  // === 查詢解析 ===
   function cnToNum(str) {
     if (!str) return null;
     if (/^\d+$/.test(str)) return parseInt(str, 10);
@@ -381,70 +416,37 @@
       else if (n === 10) { num += (temp === 0 ? 1 : temp) * 10; temp = 0; }
       else { temp = n; }
     }
-    num += temp;
-    return num;
+    num += temp; return num;
   }
 
-  // === 3. 核心：解析經文搜尋字串 ===
   function parseSearchQuery(input) {
-    input = input.replace(/\s+/g, ''); // 移除所有空格
-    
-    let bookKey = null;
-    let remain = input;
-
-    // 3-1. 找書卷名
+    input = input.replace(/\s+/g, '');
+    let bookKey = null, remain = input;
     for (const key of sortedBookNames) {
-      if (input.startsWith(key)) {
-        bookKey = key;
-        remain = input.substring(key.length);
-        break;
-      }
+      if (input.startsWith(key)) { bookKey = key; remain = input.substring(key.length); break; }
     }
-
-    // 3-2. 符號標準化
     remain = remain.replace(/[.．。,，]/g, ':');
-
-    let chapterStr = "";
-    let verseStr = null;
-
+    let chapterStr = "", verseStr = null;
     if (remain.includes(':')) {
-      const parts = remain.split(':');
-      chapterStr = parts[0];
-      verseStr = parts[1];
+      [chapterStr, verseStr] = remain.split(':');
     } else {
-      // 處理 "太六3" 這種無冒號情況
+      let splitIndex = -1;
       const isDigit = (c) => /[0-9]/.test(c);
       const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
-      
-      let splitIndex = -1;
       for (let i = 0; i < remain.length - 1; i++) {
-         if (isCnDigit(remain[i]) && isDigit(remain[i+1])) {
-             splitIndex = i + 1;
-             break;
-         }
+         if (isCnDigit(remain[i]) && isDigit(remain[i+1])) { splitIndex = i + 1; break; }
       }
-
-      if (splitIndex !== -1) {
-          chapterStr = remain.substring(0, splitIndex);
-          verseStr = remain.substring(splitIndex);
-      } else {
-          chapterStr = remain;
-      }
+      if (splitIndex !== -1) { chapterStr = remain.substring(0, splitIndex); verseStr = remain.substring(splitIndex); }
+      else { chapterStr = remain; }
     }
-
     const chapter = cnToNum(chapterStr) || parseInt(chapterStr);
     const verse = verseStr ? (cnToNum(verseStr) || parseInt(verseStr)) : null;
-
-    return { 
-        book: bookKey ? bookMap[bookKey] : null, 
-        chineseBook: bookKey, 
-        chapter: chapter ? chapter.toString() : null, 
-        verse: verse ? verse.toString() : null 
-    };
+    return { book: bookKey ? bookMap[bookKey] : null, chineseBook: bookKey, chapter: chapter ? chapter.toString() : null, verse: verse ? verse.toString() : null };
   }
 
-  // === 4. 經文搜尋邏輯 ===
+  // === 經文搜尋 ===
   function searchVerse() {
+    clearSelection(); // 搜尋時重置選取
     const input = document.getElementById('searchInput').value.trim();
     const resultElement = document.getElementById('result');
     if (!bibleReady) return;
@@ -460,17 +462,32 @@
        results = bibleData.filter(e => e.book === query.book && e.chapter === query.chapter && (query.verse === null || e.verse === query.verse));
        const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
        if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
-    } 
-    else if (query.chapter && query.verse) {
+    } else if (query.chapter && query.verse) {
         results = bibleData.filter(e => e.chapter === query.chapter && e.verse === query.verse);
         if (results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
     }
 
     if (results.length > 0) {
+      currentRenderedData = results; // 存起來
       let htmlBuffer = title;
-      results.forEach(e => {
+      results.forEach((e, idx) => {
         const cBook = Object.keys(bookMap).find(k => bookMap[k] === e.book) || e.book;
-        htmlBuffer += `<div class="result-item"><div><span class="verse-ref">${cBook} ${e.chapter}:${e.verse}</span> <span class="verse-text">${e.text}</span></div><div class="action-bar"><button class="copy-btn" onclick='copyToClipboard("${cBook} ${e.chapter}:${e.verse} ${e.text}")'>複製</button></div></div>`;
+        const key = `${e.book}_${e.chapter}_${e.verse}`; // Unique Key
+        
+        // 渲染時加入 onclick, 並傳入 idx
+        htmlBuffer += `
+          <div class="result-item" id="row-${idx}" onclick="toggleSelection(${idx})">
+            <div>
+              <span class="verse-ref">${cBook} ${e.chapter}:${e.verse}</span>
+              <span class="verse-text">${e.text}</span>
+            </div>
+            <div class="action-bar">
+               <button class="copy-btn" onclick='copySingle(event, "${cBook} ${e.chapter}:${e.verse} ${e.text}")'>
+                 複製
+               </button>
+            </div>
+          </div>
+        `;
       });
       resultElement.innerHTML = htmlBuffer;
     } else {
@@ -478,27 +495,21 @@
     }
   }
 
-  // === 5. 關鍵字搜尋 (包含與排除 - 自動優化輸入) ===
+  // === 關鍵字搜尋 ===
   function initKeywordSearch() {
+    clearSelection(); // 重置選取
     let input = document.getElementById('keywordInput').value.trim();
     if (!bibleReady) return;
     if (!input) { showToast('請輸入關鍵字'); return; }
+    
+    input = input.replace(/([^\s])-/g, '$1 -'); // 自動修正 "我-神"
 
-    // ★★★ 核心修正：自動將 "我-神" 轉換為 "我 -神" ★★★
-    // 邏輯：如果減號前不是空格，就強行補一個空格
-    input = input.replace(/([^\s])-/g, '$1 -');
-
-    // 解析關鍵字
     const rawTokens = input.split(' ').filter(t => t.trim() !== '');
     const includes = [];
     const excludes = [];
-
     rawTokens.forEach(token => {
-      if (token.startsWith('-') && token.length > 1) {
-        excludes.push(token.substring(1)); // 移除減號
-      } else {
-        includes.push(token);
-      }
+      if (token.startsWith('-') && token.length > 1) excludes.push(token.substring(1));
+      else includes.push(token);
     });
     
     currentIncludeKeywords = includes;
@@ -509,17 +520,10 @@
         return;
     }
 
-    // 篩選資料
     currentKeywordResults = [];
     for (const entry of bibleData) {
-      // AND 邏輯
-      const hasAllIncludes = includes.every(key => entry.text.includes(key));
-      if (!hasAllIncludes) continue;
-
-      // NOT 邏輯
-      const hasAnyExclude = excludes.some(key => entry.text.includes(key));
-      if (hasAnyExclude) continue;
-
+      if (!includes.every(key => entry.text.includes(key))) continue;
+      if (excludes.some(key => entry.text.includes(key))) continue;
       currentKeywordResults.push(entry);
     }
 
@@ -528,41 +532,38 @@
         document.getElementById('paginationContainer').style.display = 'none';
         return;
     }
-
-    // 重置分頁
     currentPage = 1;
     document.getElementById('pageInput').value = 1; 
     renderKeywordPage();
   }
 
-  // === 6. 分頁渲染 ===
   function renderKeywordPage() {
       const container = document.getElementById('keywordResult');
-      const paginationDiv = document.getElementById('paginationContainer');
       const totalItems = currentKeywordResults.length;
       const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-
       const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
       const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
+      
       const pageData = currentKeywordResults.slice(startIdx, endIdx);
+      currentRenderedData = pageData; // 更新當前頁面資料
 
-      // 高亮 Regex
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(${currentIncludeKeywords.map(esc).join('|')})`, 'gi');
 
       let htmlBuffer = `<div style="padding:10px 0; color:#666;">共找到 ${totalItems} 筆資料</div>`;
 
-      pageData.forEach(entry => {
+      pageData.forEach((entry, idx) => {
         const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
         const cBook = Object.keys(bookMap).find(k => bookMap[k] === entry.book) || entry.book;
         const fullRef = `${cBook} ${entry.chapter}:${entry.verse}`;
-
+        
+        // 注意：這裡的 ID 用 pageData 的 index
         htmlBuffer += `
-          <div class="result-item">
+          <div class="result-item" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
             <div class="verse-ref">${fullRef}</div>
             <div class="verse-text">${highlightedText}</div>
              <div class="action-bar">
-               <button class="copy-btn" onclick='copyToClipboard("${fullRef} ${entry.text}")'>複製</button>
+               <button class="copy-btn" onclick='copySingle(event, "${fullRef} ${entry.text}")'>複製</button>
             </div>
           </div>
         `;
@@ -571,43 +572,133 @@
       container.innerHTML = htmlBuffer;
       container.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-      // 更新分頁 UI
       if (totalPages > 1) {
-          paginationDiv.style.display = 'flex';
+          document.getElementById('paginationContainer').style.display = 'flex';
           document.getElementById('totalPagesDisplay').textContent = totalPages;
           document.getElementById('pageInput').max = totalPages;
       } else {
-          paginationDiv.style.display = 'none';
+          document.getElementById('paginationContainer').style.display = 'none';
       }
+      
+      // 換頁後，檢查是否有已經選取的項目，並恢復高亮 (進階功能，這裡先重置比較簡單)
+      // 為了簡單起見，換頁視為新開始，或保持已選但不顯示高亮？
+      // 這裡採用：換頁不清除 Set，但只高亮當前頁面有顯示的。
+      restoreHighlights('k-row-');
+  }
+  
+  // === 選取邏輯 ===
+  
+  // 經文查詢的選取
+  function toggleSelection(idx) {
+      const entry = currentRenderedData[idx];
+      const key = JSON.stringify(entry); // 簡單用物件當 Key (需轉字串)
+      const row = document.getElementById(`row-${idx}`);
+      
+      handleToggle(key, row);
+  }
+  
+  // 關鍵字查詢的選取
+  function toggleKeywordSelection(idx) {
+      const entry = currentRenderedData[idx];
+      const key = JSON.stringify(entry);
+      const row = document.getElementById(`k-row-${idx}`);
+      
+      handleToggle(key, row);
+  }
+  
+  function handleToggle(key, rowElement) {
+      if (selectedVerses.has(key)) {
+          selectedVerses.delete(key);
+          rowElement.classList.remove('selected');
+      } else {
+          selectedVerses.add(key);
+          rowElement.classList.add('selected');
+      }
+      updateFab();
+  }
+  
+  // 當切換頁面或重新渲染時，恢復視覺上的選取狀態
+  function restoreHighlights(prefix) {
+      currentRenderedData.forEach((entry, idx) => {
+          const key = JSON.stringify(entry);
+          if (selectedVerses.has(key)) {
+              const row = document.getElementById(`${prefix}${idx}`);
+              if(row) row.classList.add('selected');
+          }
+      });
+      updateFab();
   }
 
-  // === 7. 跳頁邏輯 ===
+  function updateFab() {
+      const fab = document.getElementById('fab');
+      const count = selectedVerses.size;
+      document.getElementById('fabText').textContent = `已選 ${count} 節`;
+      
+      if (count > 0) fab.classList.add('show');
+      else fab.classList.remove('show');
+  }
+  
+  function clearSelection() {
+      selectedVerses.clear();
+      document.querySelectorAll('.result-item.selected').forEach(el => el.classList.remove('selected'));
+      updateFab();
+  }
+
+  // === 複製功能 ===
+
+  // 單節複製 (防止冒泡)
+  function copySingle(e, text) {
+      e.stopPropagation(); // 阻止點擊事件傳到 row，避免觸發選取
+      copyToClipboard(text);
+  }
+
+  // 批次複製
+  function copySelectedVerses() {
+      if (selectedVerses.size === 0) return;
+      
+      // 將 Set 轉回 Array 並排序 (為了保持經文順序，這有點複雜，因為 Set 無序)
+      // 簡單做法：依照 currentRenderedData 的順序來抓，或是直接複製 Set 內容
+      // 為了使用者體驗，最好是依照加入順序，或是聖經書卷順序。
+      // 這裡簡化：依照使用者加入 Set 的順序 (Set 預設保留插入順序)
+      
+      let textBuffer = [];
+      selectedVerses.forEach(jsonStr => {
+          const e = JSON.parse(jsonStr);
+          const cBook = Object.keys(bookMap).find(k => bookMap[k] === e.book) || e.book;
+          textBuffer.push(`${cBook} ${e.chapter}:${e.verse} ${e.text}`);
+      });
+      
+      copyToClipboard(textBuffer.join('\n')); // 用換行分隔
+      clearSelection(); // 複製完清除選取
+  }
+
   function jumpToPage() {
       const input = document.getElementById('pageInput');
       const totalPages = Math.ceil(currentKeywordResults.length / ITEMS_PER_PAGE);
       let val = parseInt(input.value);
-
       if (isNaN(val) || val < 1) val = 1;
       if (val > totalPages) val = totalPages;
-
       currentPage = val;
       input.value = val; 
       renderKeywordPage();
   }
 
-  // === 8. 其他工具 ===
   window.jumpToPage = jumpToPage;
-  window.copyToClipboard = copyToClipboard;
+  window.copySingle = copySingle;
+  window.copySelectedVerses = copySelectedVerses;
+  window.toggleSelection = toggleSelection;
+  window.toggleKeywordSelection = toggleKeywordSelection;
+  window.clearSelection = clearSelection;
 
   function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text).then(() => showToast('經文已複製'));
+      navigator.clipboard.writeText(text).then(() => showToast('已複製'));
     } else {
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.position = 'fixed'; ta.style.opacity = 0;
       document.body.appendChild(ta); ta.select();
-      try { document.execCommand('copy'); showToast('經文已複製'); } catch (e) { showToast('複製失敗'); }
+      try { document.execCommand('copy'); showToast('已複製'); } catch (e) { showToast('複製失敗'); }
       document.body.removeChild(ta);
     }
   }
