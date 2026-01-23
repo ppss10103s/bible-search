@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.4 ✦</title>
+  <title>✦ 咻咻查聖經 3.5 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -13,8 +13,8 @@
       --bg-color: #f5f5f5;
       --card-bg: #ffffff;
       --text-color: #333;
-      --highlight-color: #fff9c4; /* 搜尋關鍵字高亮 */
-      --selected-bg: #ffe0b2;    /* [新] 選取狀態背景色 (淺橘色) */
+      --highlight-color: #fff9c4;
+      --selected-bg: #ffe0b2;
       --shadow: 0 4px 6px rgba(0,0,0,0.1);
       --radius: 12px;
     }
@@ -28,7 +28,7 @@
       margin: 0;
       padding: 20px;
       line-height: 1.6;
-      padding-bottom: 100px; /* 預留底部空間給浮動按鈕 */
+      padding-bottom: 120px; /* 預留底部空間給浮動按鈕 */
     }
 
     /* === 2. 佈局容器 === */
@@ -115,21 +115,21 @@
         font-size: 14px;
     }
 
-    /* === 6. 搜尋結果列表 (核心修改) === */
+    /* === 6. 搜尋結果列表 === */
     .result-item {
       padding: 15px;
       border-bottom: 1px solid #eee;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      cursor: pointer; /* 讓使用者知道可以點 */
-      transition: background-color 0.2s; /* 平滑變色 */
-      border-radius: 8px; /* 讓選取時邊角圓潤一點 */
+      cursor: pointer;
+      transition: background-color 0.2s;
+      border-radius: 8px;
     }
     
     .result-item:last-child { border-bottom: none; }
 
-    /* [新] 選取狀態樣式 */
+    /* 選取狀態 */
     .result-item.selected {
         background-color: var(--selected-bg);
         border-color: transparent;
@@ -137,8 +137,8 @@
 
     .verse-ref {
       font-weight: bold;
-      color: var(--accent-color);
-      font-size: 0.95rem;
+      color: var(--primary-color); /* 改深一點的顏色 */
+      font-size: 1rem;
     }
 
     .verse-text {
@@ -167,7 +167,7 @@
       padding: 6px 12px;
       font-size: 0.85rem;
       border-radius: 20px;
-      z-index: 2; /* 確保按鈕在點擊層之上 */
+      z-index: 2;
     }
 
     .copy-btn:hover {
@@ -181,7 +181,7 @@
         position: fixed;
         bottom: 30px;
         left: 50%;
-        transform: translateX(-50%) translateY(150px); /* 預設隱藏在下方 */
+        transform: translateX(-50%) translateY(150px);
         background-color: #333;
         color: white;
         padding: 12px 20px;
@@ -192,7 +192,7 @@
         gap: 15px;
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27);
         z-index: 100;
-        min-width: 250px;
+        min-width: 280px;
         justify-content: space-between;
     }
 
@@ -214,7 +214,6 @@
     }
     .fab-btn:active { transform: scale(0.95); }
 
-    /* 清除選取按鈕 */
     .fab-close {
         background: none;
         border: none;
@@ -247,7 +246,7 @@
 
     /* RWD */
     @media (max-width: 600px) {
-      body { padding: 10px; padding-bottom: 100px; }
+      body { padding: 10px; padding-bottom: 120px; }
       .card { padding: 15px; }
       h1 { font-size: 1.5rem; }
       #keywordBtn { width: 100%; }
@@ -257,13 +256,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.4 ✦</h1>
-  <p class="subtitle">點擊經文即可多選・支援太六3・關鍵字排除</p>
+  <h1>✦ 咻咻查聖經 3.5 ✦</h1>
+  <p class="subtitle">支援：全名搜尋・跨區選取・格式：太二十1</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="範例：太六3、詩23 (可全章搜尋)">
+      <input type="text" id="searchInput" placeholder="範例：哥林多前書13、腓利門1、太6:3">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -288,7 +287,7 @@
 
 <div id="fab" class="fab-container">
     <div style="display:flex; align-items:center; gap:10px;">
-        <button class="fab-close" onclick="clearSelection()" title="取消選取">✕</button>
+        <button class="fab-close" onclick="clearSelection()" title="清除所有選取">✕</button>
         <span class="fab-text" id="fabText">已選 0 節</span>
     </div>
     <button class="fab-btn" onclick="copySelectedVerses()">複製全部</button>
@@ -297,46 +296,91 @@
 <div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 資料庫對照表 ===
+  // === 1. 資料庫對照表 (新增全名別名) ===
   const bookMap = {
-    '創':'Gen','創世記':'Gen', '出':'Exo','出埃及記':'Exo', '利':'Lev','利未記':'Lev',
-    '民':'Num','民數記':'Num', '申':'Deu','申命記':'Deu', '書':'Jos','約書亞記':'Jos',
-    '士':'Jug','士師記':'Jug', '得':'Rut','路得記':'Rut', '撒上':'1Sa','撒母耳記上':'1Sa',
-    '撒下':'2Sa','撒母耳記下':'2Sa', '王上':'1Ki','列王記上':'1Ki', '王下':'2Ki','列王記下':'2Ki',
-    '代上':'1Ch','歷代志上':'1Ch', '代下':'2Ch','歷代志下':'2Ch', '拉':'Ezr','以斯拉記':'Ezr',
-    '尼':'Neh','尼希米記':'Neh', '斯':'Est','以斯帖記':'Est', '伯':'Job','約伯記':'Job',
-    '詩':'Psm','詩篇':'Psm', '箴':'Pro','箴言':'Pro', '傳':'Ecc','傳道書':'Ecc',
-    '歌':'Son','雅歌':'Son', '賽':'Isa','以賽亞書':'Isa', '耶':'Jer','耶利米書':'Jer',
-    '哀':'Lam','耶利米哀歌':'Lam', '結':'Eze','以西結書':'Eze', '但':'Dan','但以理書':'Dan',
-    '何':'Hos','何西阿書':'Hos', '珥':'Joe','約珥書':'Joe', '摩':'Amo','阿摩司書':'Amo',
-    '俄':'Oba','俄巴底亞書':'Oba', '拿':'Jon','約拿書':'Jon', '彌':'Mic','彌迦書':'Mic',
-    '鴻':'Nah','那鴻書':'Nah', '哈':'Hab','哈巴谷書':'Hab', '番':'Zep','西番雅書':'Zep',
-    '該':'Hag','哈該書':'Hag', '亞':'Zec','撒迦利亞書':'Zec', '瑪':'Mal','瑪拉基書':'Mal',
-    '太':'Mat','馬太福音':'Mat', '可':'Mak','馬可福音':'Mak', '路':'Luk','路加福音':'Luk',
-    '約':'Jhn','約翰福音':'Jhn', '徒':'Act','使徒行傳':'Act', '羅':'Rom','羅馬書':'Rom',
-    '林前':'1Co','哥林多前書':'1Co', '林後':'2Co','哥林多後書':'2Co', '加':'Gal','加拉太書':'Gal',
-    '弗':'Eph','以弗所書':'Eph', '腓':'Phl','腓立比書':'Phl', '西':'Col','歌羅西書':'Col',
-    '帖前':'1Ts','帖撒羅尼迦前書':'1Ts', '帖後':'2Ts','帖撒羅尼迦後書':'2Ts', '提前':'1Ti','提摩太前書':'1Ti',
-    '提後':'2Ti','提摩太後書':'2Ti', '多':'Tit','提多書':'Tit', '門':'Phm','腓利門書':'Phm',
-    '來':'Heb','希伯來書':'Heb', '雅':'Jas','雅各書':'Jas', '彼前':'1Pe','彼得前書':'1Pe',
-    '彼後':'2Pe','彼得後書':'2Pe', '約一':'1Jn','約翰一書':'1Jn', '約二':'2Jn','約翰二書':'2Jn',
-    '約三':'3Jn','約翰三書':'3Jn', '猶':'Jud','猶大書':'Jud', '啟':'Rev','啟示錄':'Rev'
+    '創':'Gen','創世記':'Gen', 
+    '出':'Exo','出埃及記':'Exo', 
+    '利':'Lev','利未記':'Lev',
+    '民':'Num','民數記':'Num', 
+    '申':'Deu','申命記':'Deu', 
+    '書':'Jos','約書亞記':'Jos',
+    '士':'Jug','士師記':'Jug', 
+    '得':'Rut','路得記':'Rut', 
+    '撒上':'1Sa','撒母耳記上':'1Sa',
+    '撒下':'2Sa','撒母耳記下':'2Sa', 
+    '王上':'1Ki','列王記上':'1Ki', 
+    '王下':'2Ki','列王記下':'2Ki',
+    '代上':'1Ch','歷代志上':'1Ch', 
+    '代下':'2Ch','歷代志下':'2Ch', 
+    '拉':'Ezr','以斯拉記':'Ezr',
+    '尼':'Neh','尼希米記':'Neh', 
+    '斯':'Est','以斯帖記':'Est', 
+    '伯':'Job','約伯記':'Job',
+    '詩':'Psm','詩篇':'Psm', 
+    '箴':'Pro','箴言':'Pro', 
+    '傳':'Ecc','傳道書':'Ecc',
+    '歌':'Son','雅歌':'Son', 
+    '賽':'Isa','以賽亞書':'Isa', 
+    '耶':'Jer','耶利米書':'Jer',
+    '哀':'Lam','耶利米哀歌':'Lam', 
+    '結':'Eze','以西結書':'Eze', 
+    '但':'Dan','但以理書':'Dan',
+    '何':'Hos','何西阿書':'Hos', 
+    '珥':'Joe','約珥書':'Joe', 
+    '摩':'Amo','阿摩司書':'Amo',
+    '俄':'Oba','俄巴底亞書':'Oba', 
+    '拿':'Jon','約拿書':'Jon', 
+    '彌':'Mic','彌迦書':'Mic',
+    '鴻':'Nah','那鴻書':'Nah', 
+    '哈':'Hab','哈巴谷書':'Hab', 
+    '番':'Zep','西番雅書':'Zep',
+    '該':'Hag','哈該書':'Hag', 
+    '亞':'Zec','撒迦利亞書':'Zec', 
+    '瑪':'Mal','瑪拉基書':'Mal',
+    '太':'Mat','馬太福音':'Mat', 
+    '可':'Mak','馬可福音':'Mak', 
+    '路':'Luk','路加福音':'Luk',
+    '約':'Jhn','約翰福音':'Jhn', 
+    '徒':'Act','使徒行傳':'Act', 
+    '羅':'Rom','羅馬書':'Rom',
+    '林前':'1Co','哥林多前書':'1Co', 
+    '林後':'2Co','哥林多後書':'2Co', 
+    '加':'Gal','加拉太書':'Gal',
+    '弗':'Eph','以弗所書':'Eph', 
+    '腓':'Phl','腓立比書':'Phl', 
+    '西':'Col','歌羅西書':'Col',
+    '帖前':'1Ts','帖撒羅尼迦前書':'1Ts', 
+    '帖後':'2Ts','帖撒羅尼迦後書':'2Ts', 
+    '提前':'1Ti','提摩太前書':'1Ti',
+    '提後':'2Ti','提摩太後書':'2Ti', 
+    '多':'Tit','提多書':'Tit', 
+    '門':'Phm','腓利門書':'Phm','腓利門':'Phm', /* 補上腓利門 */
+    '來':'Heb','希伯來書':'Heb', 
+    '雅':'Jas','雅各書':'Jas', 
+    '彼前':'1Pe','彼得前書':'1Pe',
+    '彼後':'2Pe','彼得後書':'2Pe', 
+    '約一':'1Jn','約翰一書':'1Jn', 
+    '約二':'2Jn','約翰二書':'2Jn',
+    '約三':'3Jn','約翰三書':'3Jn', 
+    '猶':'Jud','猶大書':'Jud', 
+    '啟':'Rev','啟示錄':'Rev'
   };
 
+  // 排序：長度長的在前面，確保 "哥林多前書" 不會被誤判成 "哥林多" 或其他
   const sortedBookNames = Object.keys(bookMap).sort((a, b) => b.length - a.length);
+
   let bibleData = [];
   let bibleReady = false;
   
-  // 狀態變數
+  // 搜尋狀態
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // [新] 儲存被選取的經文 ID (用 "卷:章:節" 當 key)
+  // [核心] 跨搜尋選取區 (儲存 unique key)
   let selectedVerses = new Set();
-  
-  // 儲存當前渲染的資料，方便查找
+  // 儲存當前渲染的資料，方便查找物件
   let currentRenderedData = [];
 
   window.addEventListener('load', () => {
@@ -363,7 +407,6 @@
         const res = await fetch(`./bible.csv${bust}`, (attempt === 1) ? { cache: 'default' } : { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = (await res.text()).replace(/^\uFEFF/, '');
-        document.getElementById('result').innerHTML = '<span style="color:#666">資料處理中...</span>';
         await parseCSVInWorker(text);
         bibleReady = true;
         document.getElementById('result').innerHTML = '';
@@ -402,7 +445,39 @@
     });
   }
 
-  // === 查詢解析 ===
+  // === 工具：阿拉伯數字轉中文數字 (太二十1) ===
+  function numToCn(numStr) {
+    const n = parseInt(numStr);
+    if (isNaN(n)) return numStr;
+    const digits = ['零','一','二','三','四','五','六','七','八','九'];
+    
+    if (n <= 10) return n === 10 ? '十' : digits[n];
+    if (n < 20) return '十' + digits[n % 10];
+    if (n < 100) {
+        const ten = Math.floor(n / 10);
+        const unit = n % 10;
+        return digits[ten] + '十' + (unit === 0 ? '' : digits[unit]);
+    }
+    if (n < 1000) { // 處理詩篇119篇
+        return n.toString().split('').map(d => digits[parseInt(d)]).join('').replace(/^一/, '一百').replace(/零/g, '零'); 
+        // 簡易處理，針對聖經章節通常夠用 (最大篇章150)
+        // 修正 150 -> 一百五十
+        if (n === 100) return '一百';
+        if (n <= 150) {
+            const h = Math.floor(n / 100);
+            const rem = n % 100;
+            const t = Math.floor(rem / 10);
+            const u = rem % 10;
+            let str = '一百';
+            if (t > 0) str += digits[t] + '十';
+            else if (u > 0) str += '零';
+            if (u > 0) str += digits[u];
+            return str;
+        }
+    }
+    return numStr; 
+  }
+
   function cnToNum(str) {
     if (!str) return null;
     if (/^\d+$/.test(str)) return parseInt(str, 10);
@@ -419,12 +494,27 @@
     num += temp; return num;
   }
 
+  // === 格式化輸出：太二十1 ===
+  function formatRef(englishBook, chapter, verse) {
+      // 1. 找回中文簡寫 (反查 bookMap，找最短的 key)
+      const possibleKeys = Object.keys(bookMap).filter(k => bookMap[k] === englishBook);
+      // 找出最短的 key (通常是簡寫，如 "太")
+      const shortBook = possibleKeys.reduce((a, b) => a.length <= b.length ? a : b) || englishBook;
+      
+      const cnChapter = numToCn(chapter);
+      return `${shortBook}${cnChapter}${verse}`;
+  }
+
+  // === 查詢解析 (支援全名) ===
   function parseSearchQuery(input) {
     input = input.replace(/\s+/g, '');
     let bookKey = null, remain = input;
+    
+    // 因為 sortedBookNames 已經按長度排序 (長到短)，所以 "哥林多前書" 會先被匹配，不會被 "哥" 或其他字干擾
     for (const key of sortedBookNames) {
       if (input.startsWith(key)) { bookKey = key; remain = input.substring(key.length); break; }
     }
+    
     remain = remain.replace(/[.．。,，]/g, ':');
     let chapterStr = "", verseStr = null;
     if (remain.includes(':')) {
@@ -446,7 +536,7 @@
 
   // === 經文搜尋 ===
   function searchVerse() {
-    clearSelection(); // 搜尋時重置選取
+    // 移除 clearSelection()，保留跨區選取功能
     const input = document.getElementById('searchInput').value.trim();
     const resultElement = document.getElementById('result');
     if (!bibleReady) return;
@@ -460,6 +550,8 @@
     if (query.book) {
        if (!query.chapter) return;
        results = bibleData.filter(e => e.book === query.book && e.chapter === query.chapter && (query.verse === null || e.verse === query.verse));
+       
+       // 標題顯示：若搜尋全章，顯示「腓利門書 第 1 章」
        const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
        if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
     } else if (query.chapter && query.verse) {
@@ -468,21 +560,23 @@
     }
 
     if (results.length > 0) {
-      currentRenderedData = results; // 存起來
+      currentRenderedData = results; 
       let htmlBuffer = title;
       results.forEach((e, idx) => {
-        const cBook = Object.keys(bookMap).find(k => bookMap[k] === e.book) || e.book;
-        const key = `${e.book}_${e.chapter}_${e.verse}`; // Unique Key
+        const formattedRef = formatRef(e.book, e.chapter, e.verse); // 使用新格式
         
-        // 渲染時加入 onclick, 並傳入 idx
+        // 渲染時檢查是否已選取
+        const key = JSON.stringify(e);
+        const isSelected = selectedVerses.has(key) ? 'selected' : '';
+
         htmlBuffer += `
-          <div class="result-item" id="row-${idx}" onclick="toggleSelection(${idx})">
+          <div class="result-item ${isSelected}" id="row-${idx}" onclick="toggleSelection(${idx})">
             <div>
-              <span class="verse-ref">${cBook} ${e.chapter}:${e.verse}</span>
+              <span class="verse-ref">${formattedRef}</span>
               <span class="verse-text">${e.text}</span>
             </div>
             <div class="action-bar">
-               <button class="copy-btn" onclick='copySingle(event, "${cBook} ${e.chapter}:${e.verse} ${e.text}")'>
+               <button class="copy-btn" onclick='copySingle(event, "${formattedRef} ${e.text}")'>
                  複製
                </button>
             </div>
@@ -497,12 +591,12 @@
 
   // === 關鍵字搜尋 ===
   function initKeywordSearch() {
-    clearSelection(); // 重置選取
+    // 移除 clearSelection()
     let input = document.getElementById('keywordInput').value.trim();
     if (!bibleReady) return;
     if (!input) { showToast('請輸入關鍵字'); return; }
     
-    input = input.replace(/([^\s])-/g, '$1 -'); // 自動修正 "我-神"
+    input = input.replace(/([^\s])-/g, '$1 -'); 
 
     const rawTokens = input.split(' ').filter(t => t.trim() !== '');
     const includes = [];
@@ -545,7 +639,7 @@
       const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
       
       const pageData = currentKeywordResults.slice(startIdx, endIdx);
-      currentRenderedData = pageData; // 更新當前頁面資料
+      currentRenderedData = pageData; 
 
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(${currentIncludeKeywords.map(esc).join('|')})`, 'gi');
@@ -554,16 +648,18 @@
 
       pageData.forEach((entry, idx) => {
         const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
-        const cBook = Object.keys(bookMap).find(k => bookMap[k] === entry.book) || entry.book;
-        const fullRef = `${cBook} ${entry.chapter}:${entry.verse}`;
+        const formattedRef = formatRef(entry.book, entry.chapter, entry.verse); // 使用新格式
+
+        // 檢查選取狀態
+        const key = JSON.stringify(entry);
+        const isSelected = selectedVerses.has(key) ? 'selected' : '';
         
-        // 注意：這裡的 ID 用 pageData 的 index
         htmlBuffer += `
-          <div class="result-item" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
-            <div class="verse-ref">${fullRef}</div>
+          <div class="result-item ${isSelected}" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
+            <div class="verse-ref">${formattedRef}</div>
             <div class="verse-text">${highlightedText}</div>
              <div class="action-bar">
-               <button class="copy-btn" onclick='copySingle(event, "${fullRef} ${entry.text}")'>複製</button>
+               <button class="copy-btn" onclick='copySingle(event, "${formattedRef} ${entry.text}")'>複製</button>
             </div>
           </div>
         `;
@@ -579,30 +675,20 @@
       } else {
           document.getElementById('paginationContainer').style.display = 'none';
       }
-      
-      // 換頁後，檢查是否有已經選取的項目，並恢復高亮 (進階功能，這裡先重置比較簡單)
-      // 為了簡單起見，換頁視為新開始，或保持已選但不顯示高亮？
-      // 這裡採用：換頁不清除 Set，但只高亮當前頁面有顯示的。
-      restoreHighlights('k-row-');
   }
   
   // === 選取邏輯 ===
-  
-  // 經文查詢的選取
   function toggleSelection(idx) {
       const entry = currentRenderedData[idx];
-      const key = JSON.stringify(entry); // 簡單用物件當 Key (需轉字串)
+      const key = JSON.stringify(entry);
       const row = document.getElementById(`row-${idx}`);
-      
       handleToggle(key, row);
   }
   
-  // 關鍵字查詢的選取
   function toggleKeywordSelection(idx) {
       const entry = currentRenderedData[idx];
       const key = JSON.stringify(entry);
       const row = document.getElementById(`k-row-${idx}`);
-      
       handleToggle(key, row);
   }
   
@@ -614,18 +700,6 @@
           selectedVerses.add(key);
           rowElement.classList.add('selected');
       }
-      updateFab();
-  }
-  
-  // 當切換頁面或重新渲染時，恢復視覺上的選取狀態
-  function restoreHighlights(prefix) {
-      currentRenderedData.forEach((entry, idx) => {
-          const key = JSON.stringify(entry);
-          if (selectedVerses.has(key)) {
-              const row = document.getElementById(`${prefix}${idx}`);
-              if(row) row.classList.add('selected');
-          }
-      });
       updateFab();
   }
 
@@ -645,31 +719,24 @@
   }
 
   // === 複製功能 ===
-
-  // 單節複製 (防止冒泡)
   function copySingle(e, text) {
-      e.stopPropagation(); // 阻止點擊事件傳到 row，避免觸發選取
+      e.stopPropagation();
       copyToClipboard(text);
   }
 
-  // 批次複製
   function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
-      // 將 Set 轉回 Array 並排序 (為了保持經文順序，這有點複雜，因為 Set 無序)
-      // 簡單做法：依照 currentRenderedData 的順序來抓，或是直接複製 Set 內容
-      // 為了使用者體驗，最好是依照加入順序，或是聖經書卷順序。
-      // 這裡簡化：依照使用者加入 Set 的順序 (Set 預設保留插入順序)
-      
       let textBuffer = [];
+      // 直接遍歷 Set (保持加入順序)
       selectedVerses.forEach(jsonStr => {
           const e = JSON.parse(jsonStr);
-          const cBook = Object.keys(bookMap).find(k => bookMap[k] === e.book) || e.book;
-          textBuffer.push(`${cBook} ${e.chapter}:${e.verse} ${e.text}`);
+          const formattedRef = formatRef(e.book, e.chapter, e.verse);
+          textBuffer.push(`${formattedRef} ${e.text}`);
       });
       
-      copyToClipboard(textBuffer.join('\n')); // 用換行分隔
-      clearSelection(); // 複製完清除選取
+      copyToClipboard(textBuffer.join('\n'));
+      clearSelection(); 
   }
 
   function jumpToPage() {
