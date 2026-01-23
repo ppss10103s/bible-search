@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.6 ✦</title>
+  <title>✦ 咻咻查聖經 3.7 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -256,13 +256,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.6 ✦</h1>
-  <p class="subtitle">支援：馬太5、腓立比4 (彈性簡稱)・跨區選取</p>
+  <h1>✦ 咻咻查聖經 3.7 ✦</h1>
+  <p class="subtitle">快速檢索・支援多種簡稱・可批次選取複製</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="範例：馬太5、腓立比4:6、太二十1">
+      <input type="text" id="searchInput" placeholder="輸入範例：太6:33、馬太五、腓立比書4">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -270,7 +270,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="範例：我-神 (自動排除神)">
+      <input type="text" id="keywordInput" placeholder="關鍵字空格分隔，減號可排除 (如：光 -暗)">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -495,7 +495,6 @@
   function formatRef(englishBook, chapter, verse) {
       // 找出最短的 key (通常是簡寫，如 "太")
       const possibleKeys = Object.keys(bookMap).filter(k => bookMap[k] === englishBook);
-      // BUG FIX: 加上預設值，避免 possibleKeys 為空時報錯
       const shortBook = possibleKeys.length > 0 
           ? possibleKeys.reduce((a, b) => a.length <= b.length ? a : b) 
           : englishBook;
@@ -715,7 +714,6 @@
       copyToClipboard(text);
   }
 
-  // BUG FIX: 複製全部功能修復
   function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
@@ -757,7 +755,6 @@
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(() => showToast('已複製'));
     } else {
-      // Fallback
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.position = 'fixed'; ta.style.opacity = 0;
