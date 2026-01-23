@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.8 ✦</title>
+  <title>✦ 咻咻查聖經 3.9 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -256,7 +256,7 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.8 ✦</h1>
+  <h1>✦ 咻咻查聖經 3.9 ✦</h1>
   <p class="subtitle">快速檢索・支援多種簡稱・可批次選取複製</p>
 
   <div class="card">
@@ -296,7 +296,7 @@
 <div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 1. 資料庫對照表 (完整支援) ===
+  // === 1. 資料庫對照表 ===
   const bookMap = {
     // 舊約
     '創':'Gen','創世':'Gen','創世記':'Gen', 
@@ -374,15 +374,16 @@
   let bibleData = [];
   let bibleReady = false;
   
-  // 狀態
+  // 搜尋狀態
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // 選取區
-  let selectedVerses = new Set();
-  let currentRenderedData = [];
+  // === 【關鍵修改】資料分流，避免打架 ===
+  let currentVerseData = [];        // 經文搜尋的結果
+  let currentKeywordPageData = [];  // 關鍵字搜尋(當前頁)的結果
+  let selectedVerses = new Set();   // 已選取的經文 ID 集合
 
   window.addEventListener('load', () => {
     const searchInput = document.getElementById('searchInput');
@@ -445,7 +446,7 @@
     });
   }
 
-  // === 工具 ===
+  // === 工具函式 ===
   function numToCn(numStr) {
     const n = parseInt(numStr);
     if (isNaN(n)) return numStr;
@@ -490,7 +491,6 @@
     num += temp; return num;
   }
 
-  // 更穩健的格式轉換
   function formatRef(englishBook, chapter, verse) {
       let shortBook = englishBook;
       try {
@@ -499,11 +499,7 @@
             keys.sort((a, b) => a.length - b.length);
             shortBook = keys[0];
         }
-      } catch (e) {
-        // Fallback to English ID if error
-        shortBook = englishBook;
-      }
-      
+      } catch (e) {}
       const cnChapter = numToCn(chapter);
       return `${shortBook}${cnChapter}${verse}`;
   }
@@ -511,11 +507,9 @@
   function parseSearchQuery(input) {
     input = input.replace(/\s+/g, '');
     let bookKey = null, remain = input;
-    
     for (const key of sortedBookNames) {
       if (input.startsWith(key)) { bookKey = key; remain = input.substring(key.length); break; }
     }
-    
     remain = remain.replace(/[.．。,，]/g, ':');
     let chapterStr = "", verseStr = null;
     if (remain.includes(':')) {
@@ -550,7 +544,6 @@
     if (query.book) {
        if (!query.chapter) return;
        results = bibleData.filter(e => e.book === query.book && e.chapter === query.chapter && (query.verse === null || e.verse === query.verse));
-       
        const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
        if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
     } else if (query.chapter && query.verse) {
@@ -559,15 +552,18 @@
     }
 
     if (results.length > 0) {
-      currentRenderedData = results; 
+      // ★ 修正重點：使用專屬變數，不與關鍵字搜尋混用
+      currentVerseData = results; 
+      
       let htmlBuffer = title;
       results.forEach((e, idx) => {
         const formattedRef = formatRef(e.book, e.chapter, e.verse);
         const key = JSON.stringify(e);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
 
+        // ID 使用 v-row 前綴，區隔 DOM
         htmlBuffer += `
-          <div class="result-item ${isSelected}" id="row-${idx}" onclick="toggleSelection(${idx})">
+          <div class="result-item ${isSelected}" id="v-row-${idx}" onclick="toggleVerseSelection(${idx})">
             <div>
               <span class="verse-ref">${formattedRef}</span>
               <span class="verse-text">${e.text}</span>
@@ -635,7 +631,8 @@
       const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
       
       const pageData = currentKeywordResults.slice(startIdx, endIdx);
-      currentRenderedData = pageData; 
+      // ★ 修正重點：使用專屬變數
+      currentKeywordPageData = pageData; 
 
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(${currentIncludeKeywords.map(esc).join('|')})`, 'gi');
@@ -649,6 +646,7 @@
         const key = JSON.stringify(entry);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
         
+        // ID 使用 k-row 前綴
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
             <div class="verse-ref">${formattedRef}</div>
@@ -672,16 +670,20 @@
       }
   }
   
-  // === 選取邏輯 ===
-  function toggleSelection(idx) {
-      const entry = currentRenderedData[idx];
+  // === 選取邏輯 (分開處理) ===
+  function toggleVerseSelection(idx) {
+      // 讀取經文搜尋的暫存資料
+      const entry = currentVerseData[idx];
+      if (!entry) return;
       const key = JSON.stringify(entry);
-      const row = document.getElementById(`row-${idx}`);
+      const row = document.getElementById(`v-row-${idx}`);
       handleToggle(key, row);
   }
   
   function toggleKeywordSelection(idx) {
-      const entry = currentRenderedData[idx];
+      // 讀取關鍵字搜尋的暫存資料
+      const entry = currentKeywordPageData[idx];
+      if (!entry) return;
       const key = JSON.stringify(entry);
       const row = document.getElementById(`k-row-${idx}`);
       handleToggle(key, row);
@@ -690,10 +692,10 @@
   function handleToggle(key, rowElement) {
       if (selectedVerses.has(key)) {
           selectedVerses.delete(key);
-          rowElement.classList.remove('selected');
+          if (rowElement) rowElement.classList.remove('selected');
       } else {
           selectedVerses.add(key);
-          rowElement.classList.add('selected');
+          if (rowElement) rowElement.classList.add('selected');
       }
       updateFab();
   }
@@ -713,24 +715,25 @@
       updateFab();
   }
 
-  // === 複製核心修正 (同步執行) ===
+  // === 複製核心 (使用 fallback 確保相容性) ===
   function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
       let textBuffer = [];
-      // 容錯機制：遇到錯誤資料只跳過該節，不中斷
+      // 直接遍歷 Set (保持加入順序)
       selectedVerses.forEach(jsonStr => {
           try {
             const e = JSON.parse(jsonStr);
             const formattedRef = formatRef(e.book, e.chapter, e.verse);
             textBuffer.push(`${formattedRef} ${e.text}`);
           } catch(err) {
-            console.warn("Skipped invalid verse data");
+            console.warn("Skip invalid");
           }
       });
 
       if (textBuffer.length > 0) {
-        copyToClipboard(textBuffer.join('\n'));
+        // 同步執行複製，避免被瀏覽器阻擋
+        copyToClipboard(textBuffer.join('\n'), true); 
         clearSelection();
       }
   }
@@ -754,35 +757,30 @@
   window.jumpToPage = jumpToPage;
   window.copySingle = copySingle;
   window.copySelectedVerses = copySelectedVerses;
-  window.toggleSelection = toggleSelection;
+  window.toggleVerseSelection = toggleVerseSelection;
   window.toggleKeywordSelection = toggleKeywordSelection;
   window.clearSelection = clearSelection;
 
-  // 統一複製函式：優先嘗試 Clipboard API，失敗則退回 execCommand (同步)
-  function copyToClipboard(text) {
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(text)
-        .then(() => showToast('已複製'))
-        .catch(() => fallbackCopy(text));
-    } else {
-      fallbackCopy(text);
-    }
-  }
-
-  function fallbackCopy(text) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = 0;
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        const successful = document.execCommand('copy');
-        showToast(successful ? '已複製' : '複製失敗');
-      } catch (err) {
-        showToast('複製失敗');
+  // 統一複製函式
+  function copyToClipboard(text, isBatch = false) {
+    // 建立臨時 Textarea (最穩定的方法)
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = 0;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+          showToast(isBatch ? `已複製 ${selectedVerses.size} 節` : '已複製');
+      } else {
+          showToast('複製失敗');
       }
-      document.body.removeChild(ta);
+    } catch (err) {
+      showToast('複製失敗');
+    }
+    document.body.removeChild(ta);
   }
 
   function showToast(msg) {
