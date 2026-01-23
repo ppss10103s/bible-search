@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.7 ✦</title>
+  <title>✦ 咻咻查聖經 3.8 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -257,12 +257,12 @@
 
 <div class="container">
   <h1>✦ 咻咻查聖經 3.8 ✦</h1>
-  <p class="subtitle">快速檢索・支援各種簡稱・可選取多章節複製</p>
+  <p class="subtitle">快速檢索・支援多種簡稱・可批次選取複製</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="輸入範例：馬太5、1.7、太二十1">
+      <input type="text" id="searchInput" placeholder="輸入範例：太6:33、馬太五、腓立比書4">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -270,7 +270,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="關鍵字用空格分隔，減號可排除搜尋">
+      <input type="text" id="keywordInput" placeholder="關鍵字空格分隔，減號可排除 (如：光 -暗)">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -296,7 +296,7 @@
 <div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 1. 資料庫對照表 (完整支援常見簡稱) ===
+  // === 1. 資料庫對照表 (完整支援) ===
   const bookMap = {
     // 舊約
     '創':'Gen','創世':'Gen','創世記':'Gen', 
@@ -374,13 +374,13 @@
   let bibleData = [];
   let bibleReady = false;
   
-  // 搜尋狀態
+  // 狀態
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // 跨搜尋選取區
+  // 選取區
   let selectedVerses = new Set();
   let currentRenderedData = [];
 
@@ -490,18 +490,18 @@
     num += temp; return num;
   }
 
-  // BUG FIX: 更安全的格式轉換函式，避免報錯
+  // 更穩健的格式轉換
   function formatRef(englishBook, chapter, verse) {
       let shortBook = englishBook;
       try {
         const keys = Object.keys(bookMap).filter(k => bookMap[k] === englishBook);
         if (keys.length > 0) {
-            // 找出最短的中文簡寫 (如: "太")
             keys.sort((a, b) => a.length - b.length);
             shortBook = keys[0];
         }
       } catch (e) {
-        console.error("Format ref error", e);
+        // Fallback to English ID if error
+        shortBook = englishBook;
       }
       
       const cnChapter = numToCn(chapter);
@@ -713,38 +713,31 @@
       updateFab();
   }
 
-  // === 複製功能 (BUG FIX: 支援 Async 且更安全) ===
-  async function copySelectedVerses() {
+  // === 複製核心修正 (同步執行) ===
+  function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
       let textBuffer = [];
-      let failCount = 0;
-
+      // 容錯機制：遇到錯誤資料只跳過該節，不中斷
       selectedVerses.forEach(jsonStr => {
           try {
             const e = JSON.parse(jsonStr);
             const formattedRef = formatRef(e.book, e.chapter, e.verse);
             textBuffer.push(`${formattedRef} ${e.text}`);
           } catch(err) {
-            failCount++;
-            console.error("Parse error", err);
+            console.warn("Skipped invalid verse data");
           }
       });
 
       if (textBuffer.length > 0) {
-        await copyToClipboard(textBuffer.join('\n'));
+        copyToClipboard(textBuffer.join('\n'));
         clearSelection();
-      }
-      
-      if (failCount > 0) {
-          showToast(`已複製，但有 ${failCount} 節失敗`);
       }
   }
 
-  // 單節複製
-  async function copySingle(e, text) {
+  function copySingle(e, text) {
       e.stopPropagation();
-      await copyToClipboard(text);
+      copyToClipboard(text);
   }
 
   function jumpToPage() {
@@ -765,16 +758,12 @@
   window.toggleKeywordSelection = toggleKeywordSelection;
   window.clearSelection = clearSelection;
 
-  // 優化版複製函式：支援 Async/Await 與 Fallback
-  async function copyToClipboard(text) {
+  // 統一複製函式：優先嘗試 Clipboard API，失敗則退回 execCommand (同步)
+  function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
-      try {
-        await navigator.clipboard.writeText(text);
-        showToast('已複製');
-      } catch (err) {
-        // Fallback if writeText fails
-        fallbackCopy(text);
-      }
+      navigator.clipboard.writeText(text)
+        .then(() => showToast('已複製'))
+        .catch(() => fallbackCopy(text));
     } else {
       fallbackCopy(text);
     }
@@ -783,13 +772,14 @@
   function fallbackCopy(text) {
       const ta = document.createElement('textarea');
       ta.value = text;
-      ta.style.position = 'fixed'; ta.style.opacity = 0;
+      ta.style.position = 'fixed';
+      ta.style.opacity = 0;
       document.body.appendChild(ta);
       ta.select();
       try {
-        document.execCommand('copy');
-        showToast('已複製');
-      } catch (e) {
+        const successful = document.execCommand('copy');
+        showToast(successful ? '已複製' : '複製失敗');
+      } catch (err) {
         showToast('複製失敗');
       }
       document.body.removeChild(ta);
@@ -805,4 +795,3 @@
 </script>
 </body>
 </html>
-
