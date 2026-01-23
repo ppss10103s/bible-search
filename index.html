@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 ✦</title>
+  <title>✦ 咻咻查聖經 2.0 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
     :root {
-      --primary-color: #5d4037; /* 深棕色，適合閱讀 */
+      --primary-color: #5d4037;
       --accent-color: #8d6e63;
       --bg-color: #f5f5f5;
       --card-bg: #ffffff;
@@ -71,7 +71,7 @@
       padding: 12px 15px;
       border: 1px solid #ddd;
       border-radius: 8px;
-      font-size: 16px; /* 防止 iOS 自動縮放 */
+      font-size: 16px;
       transition: border-color 0.3s;
       width: 100%;
     }
@@ -95,6 +95,34 @@
 
     button:hover {
       background-color: #4e342e;
+    }
+    
+    /* 分頁按鈕樣式 */
+    .pagination {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+        align-items: center;
+    }
+    
+    .page-btn {
+        background-color: #fff;
+        color: var(--primary-color);
+        border: 1px solid var(--primary-color);
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .page-btn:disabled {
+        border-color: #ccc;
+        color: #ccc;
+        cursor: not-allowed;
+    }
+    
+    .page-btn:hover:not(:disabled) {
+        background-color: var(--primary-color);
+        color: #fff;
     }
 
     /* === 5. 搜尋結果列表 === */
@@ -177,8 +205,6 @@
       body { padding: 10px; }
       .card { padding: 15px; }
       h1 { font-size: 1.5rem; }
-      
-      /* 讓搜尋按鈕在手機上佔滿寬度，方便點擊 */
       #keywordBtn { width: 100%; }
     }
   </style>
@@ -186,13 +212,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 ✦</h1>
-  <p class="subtitle">快速經文檢索・即時關鍵字搜尋</p>
+  <h1>✦ 咻咻查聖經 2.0 ✦</h1>
+  <p class="subtitle">支援：太六3、6:3 (全書卷搜尋)、關鍵字分頁</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="範例：太6:33、詩23 (支援多種格式)">
+      <input type="text" id="searchInput" placeholder="範例：太六3、6:3、詩23">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -204,13 +230,14 @@
       <button id="keywordBtn">搜尋</button>
     </div>
     <div id="keywordResult" style="margin-top: 15px;"></div>
+    <div id="paginationContainer" class="pagination" style="display:none;"></div>
   </div>
 </div>
 
 <div id="toast" class="toast">已複製經文</div>
 
 <script>
-  // === 卷名對照 (維持不變) ===
+  // === 卷名對照 ===
   const bookMap = {
     '創':'Gen','創世記':'Gen', '出':'Exo','出埃及記':'Exo', '利':'Lev','利未記':'Lev',
     '民':'Num','民數記':'Num', '申':'Deu','申命記':'Deu', '書':'Jos','約書亞記':'Jos',
@@ -236,9 +263,17 @@
     '約三':'3Jn','約翰三書':'3Jn', '猶':'Jud','猶大書':'Jud', '啟':'Rev','啟示錄':'Rev'
   };
 
+  // 排序書卷名，讓長的名稱優先匹配 (解決 "約翰一書" 被誤判為 "約" 的問題)
+  const sortedBookNames = Object.keys(bookMap).sort((a, b) => b.length - a.length);
+
   let bibleData = [];
   let bibleReady = false;
-  let loadingError = null;
+  
+  // 分頁相關全域變數
+  let currentKeywordResults = [];
+  let currentPage = 1;
+  const ITEMS_PER_PAGE = 100;
+  let currentSearchKeywords = []; // 儲存當前搜尋的關鍵字以便高亮
 
   window.addEventListener('load', () => {
     const searchInput  = document.getElementById('searchInput');
@@ -249,9 +284,9 @@
     const resultDiv = document.getElementById('result');
     resultDiv.innerHTML = '<span style="color:#888">資料庫載入中，請稍候...</span>';
 
-    searchInput.addEventListener('input', debounce(searchVerse, 200));
-    keywordBtn.addEventListener('click', searchKeyword);
-    keywordInput.addEventListener('keydown', e => { if (e.key === 'Enter') searchKeyword(); });
+    searchInput.addEventListener('input', debounce(searchVerse, 300));
+    keywordBtn.addEventListener('click', () => initKeywordSearch());
+    keywordInput.addEventListener('keydown', e => { if (e.key === 'Enter') initKeywordSearch(); });
 
     loadCSVWithRetry();
   });
@@ -271,11 +306,7 @@
         await parseCSVInWorker(text);
 
         bibleReady = true;
-        loadingError = null;
-        
-        // 載入完成清空提示
         document.getElementById('result').innerHTML = '';
-        
         if (document.getElementById('searchInput').value.trim()) {
           searchVerse();
         }
@@ -285,8 +316,6 @@
         await delay(300 * attempt);
       }
     }
-    bibleReady = false;
-    loadingError = lastErr?.message || '載入失敗';
     document.getElementById('result').innerHTML = `<span style="color:red">資料載入失敗，請重新整理頁面。</span>`;
   }
 
@@ -320,15 +349,133 @@
         worker.terminate();
         resolve();
       };
-      worker.onerror = (err) => {
-        worker.terminate();
-        reject(err);
-      };
       worker.postMessage(csvText);
     });
   }
 
-  // ====== 經文搜尋 (UI 優化版) ======
+  // === 工具: 中文數字轉阿拉伯數字 (僅處理 1-150 章節範圍通常夠用) ===
+  function cnToNum(str) {
+    if (!str) return null;
+    // 如果已經是純數字，直接返回
+    if (/^\d+$/.test(str)) return parseInt(str, 10);
+
+    const map = { '零':0, '一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9, '十':10, '百':100 };
+    let val = 0;
+    
+    // 簡單替換：將 "太六3" 的 "六" 換成 6
+    // 但因為有 "十一" (11) 這種組合，我們需要一個簡單的解析邏輯
+    // 這裡我們採用「替換法」：把中文數字單獨抓出來轉。
+    // 針對聖經章節（通常小於 200），我們可以用簡單邏輯：
+    
+    // 特殊處理：如果不包含中文數字，返回 null
+    if (!/[一二三四五六七八九十百]/.test(str)) return null;
+
+    let num = 0;
+    let temp = 0; 
+    // 簡易解析器
+    for (let i = 0; i < str.length; i++) {
+      const char = str[i];
+      const n = map[char];
+      if (n === undefined) continue; // 跳過非數字字元
+
+      if (n === 100) {
+          num += (temp === 0 ? 1 : temp) * 100;
+          temp = 0;
+      } else if (n === 10) {
+          num += (temp === 0 ? 1 : temp) * 10;
+          temp = 0;
+      } else {
+          temp = n;
+      }
+    }
+    num += temp;
+    return num;
+  }
+
+  // === 核心: 解析搜尋字串 ===
+  function parseSearchQuery(input) {
+    // 移除所有空格
+    input = input.replace(/\s+/g, '');
+    
+    // 1. 嘗試配對書卷名
+    let bookKey = null;
+    let remain = input;
+
+    for (const key of sortedBookNames) {
+      if (input.startsWith(key)) {
+        bookKey = key;
+        remain = input.substring(key.length);
+        break;
+      }
+    }
+
+    // 將剩餘字串中的分隔符號統一化 (將 : . ． 全換成 :)
+    remain = remain.replace(/[.．]/g, ':');
+
+    // 嘗試解析章節
+    // 可能格式: "6:3", "六3", "6", "六"
+    // 分割章和節
+    let chapterStr = "";
+    let verseStr = null;
+
+    if (remain.includes(':')) {
+      const parts = remain.split(':');
+      chapterStr = parts[0];
+      verseStr = parts[1];
+    } else {
+      // 沒有冒號，可能是 "六3" 或是純數字 "6"
+      // 策略：找出數字與中文數字的邊界，或者如果全是中文/數字
+      // 簡單做法：正則找出前段數字(含中文) 與 後段數字(含中文)
+      // 例如 "六3" -> ch:六, v:3
+      
+      // 先把所有中文數字轉成阿拉伯數字字串，方便正則
+      // 注意：不能直接轉，因為 "十二3" 會變成 123。
+      // 我們假設：如果書卷後緊接數字，通常是章。
+      // 如果混合了中文和阿拉伯數字 (太六3)，通常切分點在中文與阿拉伯數字變換處，或是如果全是中文 (太六三)，則比較模糊。
+      // 但使用者需求是 "太六3" -> 6章3節。
+      
+      // 正則：(中文數字或阿拉伯數字串) 接著 (中文數字或阿拉伯數字串)?
+      // 這比較難完美，我們採用使用者提到的具體格式：
+      // 優先支援 "中文+阿拉伯" 或 "數字:數字"
+      
+      // 簡易 Parser: 
+      // 1. 把所有中文數字字元標記起來
+      const isDigit = (c) => /[0-9]/.test(c);
+      const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
+      
+      let splitIndex = -1;
+      // 尋找切分點：從數字類型改變的地方，或是明顯的邏輯
+      // 如果只有一段連續的數字(不管中西)，那就是只有章
+      
+      // 針對 "六3" (CN -> Digit)
+      for (let i = 0; i < remain.length - 1; i++) {
+         if (isCnDigit(remain[i]) && isDigit(remain[i+1])) {
+             splitIndex = i + 1;
+             break;
+         }
+      }
+
+      if (splitIndex !== -1) {
+          chapterStr = remain.substring(0, splitIndex);
+          verseStr = remain.substring(splitIndex);
+      } else {
+          // 如果沒有明顯切分，視為只有章 (例如 "太6" 或 "太六")
+          chapterStr = remain;
+      }
+    }
+
+    const chapter = cnToNum(chapterStr) || parseInt(chapterStr);
+    const verse = verseStr ? (cnToNum(verseStr) || parseInt(verseStr)) : null;
+
+    return {
+      book: bookKey ? bookMap[bookKey] : null, // 英文簡寫
+      chineseBook: bookKey,                    // 中文輸入
+      chapter: chapter ? chapter.toString() : null,
+      verse: verse ? verse.toString() : null
+    };
+  }
+
+  // ====== 經文搜尋 (新邏輯) ======
   function searchVerse() {
     const input = document.getElementById('searchInput').value.trim();
     const resultElement = document.getElementById('result');
@@ -336,49 +483,55 @@
     if (!bibleReady) return;
     resultElement.innerHTML = '';
     if (!input) return;
-    if (input.includes(' ')) { 
-      resultElement.innerHTML = '<div style="color:orange">格式提示：不需要空格，請直接輸入如「太2:1」</div>'; 
-      return; 
+
+    // 解析輸入
+    const query = parseSearchQuery(input);
+    // console.log("Parsed Query:", query); // 除錯用
+
+    let results = [];
+    let title = "";
+
+    // 情況 A: 有指定書卷 (例如: "太六3")
+    if (query.book) {
+       if (!query.chapter) {
+           // 只有書卷名，不搜尋
+           return;
+       }
+       results = bibleData.filter(e => 
+         e.book === query.book && 
+         e.chapter === query.chapter && 
+         (query.verse === null || e.verse === query.verse)
+       );
+       
+       // 顯示標題
+       const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
+       if (results.length > 0 && !query.verse) {
+           title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
+       }
+    } 
+    // 情況 B: 沒書卷，但有章節 (例如: "6.3", "六3") -> 全經卷搜尋
+    else if (query.chapter && query.verse) {
+        results = bibleData.filter(e => 
+            e.chapter === query.chapter && 
+            e.verse === query.verse
+        );
+        if (results.length > 0) {
+            title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
+        }
     }
-
-    const regex = /^(\D{1,4})(\d+)[章:.．]?(\d+)?$/;
-    const match = input.match(regex);
-    if (!match) { 
-        // 不顯示錯誤，保持安靜，除非格式明顯錯誤
-        return; 
-    }
-
-    const chineseBook = match[1].trim();
-    const chapter = match[2].trim();
-    const verse = match[3] ? match[3].trim() : null;
-    const englishBook = bookMap[chineseBook];
-
-    if (!englishBook) { resultElement.innerHTML = '<div style="color:#999">查無此書卷，請確認簡稱。</div>'; return; }
-
-    let htmlBuffer = '';
-    
-    // 查詢邏輯
-    const results = bibleData.filter(e => 
-      e.book === englishBook && 
-      e.chapter === chapter && 
-      (verse === null || e.verse === verse)
-    );
 
     if (results.length > 0) {
-      // 整章顯示時，加上標題
-      if (verse === null) {
-        htmlBuffer += `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${chineseBook} 第 ${chapter} 章</div>`;
-      }
-
+      let htmlBuffer = title;
       results.forEach(e => {
+        const cBook = Object.keys(bookMap).find(k => bookMap[k] === e.book) || e.book;
         htmlBuffer += `
           <div class="result-item">
             <div>
-              <span class="verse-ref">${e.chapter}:${e.verse}</span>
+              <span class="verse-ref">${cBook} ${e.chapter}:${e.verse}</span>
               <span class="verse-text">${e.text}</span>
             </div>
             <div class="action-bar">
-               <button class="copy-btn" onclick='copyToClipboard("${chineseBook} ${e.chapter}:${e.verse} ${e.text}")'>
+               <button class="copy-btn" onclick='copyToClipboard("${cBook} ${e.chapter}:${e.verse} ${e.text}")'>
                  複製
                </button>
             </div>
@@ -387,36 +540,62 @@
       });
       resultElement.innerHTML = htmlBuffer;
     } else {
-      resultElement.innerHTML = '<div style="color:#999">查無經文。</div>';
+      // 只有在輸入看起來像經文格式時才顯示「查無經文」
+      if (query.chapter) {
+          resultElement.innerHTML = '<div style="color:#999">查無經文，請確認格式 (如: 太6:3 或 6:3)。</div>';
+      }
     }
   }
 
-  // ====== 關鍵字搜尋 (UI 優化版) ======
-  function searchKeyword() {
+  // ====== 關鍵字搜尋 (分頁版) ======
+  function initKeywordSearch() {
     const input = document.getElementById('keywordInput').value.trim();
-    const resultElement = document.getElementById('keywordResult');
-
     if (!bibleReady) return;
-    resultElement.innerHTML = '';
     if (!input) { showToast('請輸入關鍵字'); return; }
 
     const keywords = input.split(' ').filter(Boolean);
-    const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${keywords.map(esc).join('|')})`, 'gi');
-
-    let htmlBuffer = '';
-    let count = 0;
-    // 限制顯示筆數以防當機
-    const MAX_RESULTS = 100; 
-
+    currentSearchKeywords = keywords;
+    
+    // 搜尋所有符合的資料
+    currentKeywordResults = [];
     for (const entry of bibleData) {
       if (keywords.every(k => entry.text.includes(k))) {
-        count++;
-        if (count > MAX_RESULTS) continue; // 超過不渲染，但繼續計數
+        currentKeywordResults.push(entry);
+      }
+    }
 
+    if (currentKeywordResults.length === 0) {
+        document.getElementById('keywordResult').innerHTML = '<div style="padding:20px; text-align:center; color:#999">找不到相關經文。</div>';
+        document.getElementById('paginationContainer').style.display = 'none';
+        return;
+    }
+
+    // 重置分頁並渲染第一頁
+    currentPage = 1;
+    renderKeywordPage();
+  }
+
+  function renderKeywordPage() {
+      const container = document.getElementById('keywordResult');
+      const paginationDiv = document.getElementById('paginationContainer');
+      const totalItems = currentKeywordResults.length;
+      const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+      // 計算當前頁面的資料範圍
+      const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+      const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
+      const pageData = currentKeywordResults.slice(startIdx, endIdx);
+
+      // Regex 準備
+      const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${currentSearchKeywords.map(esc).join('|')})`, 'gi');
+
+      let htmlBuffer = `<div style="padding:10px 0; color:#666;">共找到 ${totalItems} 筆資料 (第 ${currentPage} / ${totalPages} 頁)</div>`;
+
+      pageData.forEach(entry => {
         const highlightedText = entry.text.replace(regex, '<span class="highlight">$1</span>');
-        const chineseBook = Object.keys(bookMap).find(k => bookMap[k] === entry.book) || entry.book;
-        const fullRef = `${chineseBook} ${entry.chapter}:${entry.verse}`;
+        const cBook = Object.keys(bookMap).find(k => bookMap[k] === entry.book) || entry.book;
+        const fullRef = `${cBook} ${entry.chapter}:${entry.verse}`;
 
         htmlBuffer += `
           <div class="result-item">
@@ -429,25 +608,41 @@
             </div>
           </div>
         `;
-      }
-    }
+      });
 
-    if (count > 0) {
-      let header = `<div style="padding:10px 0; color:#666;">共找到 ${count} 筆資料`;
-      if (count > MAX_RESULTS) header += ` (僅顯示前 ${MAX_RESULTS} 筆)`;
-      header += `</div>`;
-      resultElement.innerHTML = header + htmlBuffer;
-    } else {
-      resultElement.innerHTML = '<div style="padding:20px; text-align:center; color:#999">找不到相關經文。</div>';
-    }
+      container.innerHTML = htmlBuffer;
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // 渲染分頁按鈕
+      if (totalPages > 1) {
+          paginationDiv.style.display = 'flex';
+          paginationDiv.innerHTML = `
+              <button class="page-btn" onclick="changePage(-1)" ${currentPage === 1 ? 'disabled' : ''}>上一頁</button>
+              <span style="font-size:0.9rem; color:#666;">${currentPage} / ${totalPages}</span>
+              <button class="page-btn" onclick="changePage(1)" ${currentPage === totalPages ? 'disabled' : ''}>下一頁</button>
+          `;
+      } else {
+          paginationDiv.style.display = 'none';
+      }
   }
+
+  function changePage(delta) {
+      const totalPages = Math.ceil(currentKeywordResults.length / ITEMS_PER_PAGE);
+      const newPage = currentPage + delta;
+      if (newPage >= 1 && newPage <= totalPages) {
+          currentPage = newPage;
+          renderKeywordPage();
+      }
+  }
+  
+  // 為了讓 HTML onclick 能呼叫到 changePage，需確保它在 window scope (這段腳本在 HTML 內，預設就是 global)
+  window.changePage = changePage;
 
   // ====== 工具函式 ======
   function copyToClipboard(text) {
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(() => showToast('經文已複製'));
     } else {
-      // Fallback
       const textarea = document.createElement('textarea');
       textarea.value = text;
       textarea.style.position = 'fixed';
