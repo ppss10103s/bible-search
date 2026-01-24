@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 4.0 ✦</title>
+  <title>✦ 咻咻查聖經 4.1 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -256,7 +256,7 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 4.0 ✦</h1>
+  <h1>✦ 咻咻查聖經 4.1 ✦</h1>
   <p class="subtitle">快速檢索・支援多種中文經卷簡稱・可大量選取複製</p>
 
   <div class="card">
@@ -270,7 +270,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="查詢多項關鍵字用空格，使用減號可排除">
+      <input type="text" id="keywordInput" placeholder="使用空格查詢多項關鍵字，減號可排除">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -374,7 +374,7 @@
   let bibleData = [];
   let bibleReady = false;
   
-  // 搜尋狀態
+  // 狀態
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
@@ -428,11 +428,14 @@
             const row = lines[i]; if (!row) continue;
             const parts = row.split(',');
             if (parts.length >= 4) {
+              const c = parseInt(parts[1].trim());
+              const v = parseInt(parts[2].trim());
               out.push({
                 book: parts[0].trim(),
-                chapter: parts[1].trim(),
-                verse: parts[2].trim(),
-                text: parts.slice(3).join(',').trim()
+                chapter: c,
+                verse: v,
+                text: parts.slice(3).join(',').trim(),
+                id: c * 1000 + v // ★ V4.1 核心：建立分數索引 (章*1000 + 節)
               });
             }
           }
@@ -504,32 +507,121 @@
       return `${shortBook}${cnChapter}${verse}`;
   }
 
-  function parseSearchQuery(input) {
-    input = input.replace(/\s+/g, '');
-    let bookKey = null, remain = input;
-    for (const key of sortedBookNames) {
-      if (input.startsWith(key)) { bookKey = key; remain = input.substring(key.length); break; }
-    }
-    remain = remain.replace(/[.．。,，]/g, ':');
-    let chapterStr = "", verseStr = null;
-    if (remain.includes(':')) {
-      [chapterStr, verseStr] = remain.split(':');
-    } else {
-      let splitIndex = -1;
-      const isDigit = (c) => /[0-9]/.test(c);
-      const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
-      for (let i = 0; i < remain.length - 1; i++) {
-         if (isCnDigit(remain[i]) && isDigit(remain[i+1])) { splitIndex = i + 1; break; }
+  // === ★ V4.1 核心：進階查詢解析器 (支援區間) ===
+  function parseRefPart(str, defaultBook, defaultChapter) {
+      // 移除可能的書卷名
+      let bookKey = defaultBook;
+      let remain = str;
+      for (const key of sortedBookNames) {
+          if (str.startsWith(key)) {
+              bookKey = bookMap[key];
+              remain = str.substring(key.length);
+              break;
+          }
       }
-      if (splitIndex !== -1) { chapterStr = remain.substring(0, splitIndex); verseStr = remain.substring(splitIndex); }
-      else { chapterStr = remain; }
-    }
-    const chapter = cnToNum(chapterStr) || parseInt(chapterStr);
-    const verse = verseStr ? (cnToNum(verseStr) || parseInt(verseStr)) : null;
-    return { book: bookKey ? bookMap[bookKey] : null, chineseBook: bookKey, chapter: chapter ? chapter.toString() : null, verse: verse ? verse.toString() : null };
+      
+      remain = remain.replace(/[.．。,，]/g, ':');
+      
+      // 判斷是否包含章節分隔
+      let c, v;
+      
+      // 判斷邏輯：如果包含冒號，或者有中文數字，或者書卷名改變，視為「有指定章」
+      // 但如果只是純阿拉伯數字，且前面已經有預設章，則視為「同章的節」
+      const hasSeparator = remain.includes(':');
+      const hasChinese = /[一二三四五六七八九十百]/.test(remain);
+      
+      if (hasSeparator) {
+          const p = remain.split(':');
+          c = cnToNum(p[0]) || parseInt(p[0]);
+          v = cnToNum(p[1]) || parseInt(p[1]);
+      } else if (hasChinese) {
+          // 簡易切分：太六3 -> 六(章) 3(節)
+          // 這裡簡化處理：假設有中文數字就是有章
+          // 尋找切分點
+          let splitIdx = -1;
+          const isDigit = (c) => /[0-9]/.test(c);
+          const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
+          for(let i=0; i<remain.length-1; i++) {
+              if(isCnDigit(remain[i]) && isDigit(remain[i+1])) { splitIdx = i+1; break; }
+          }
+          if (splitIdx !== -1) {
+              c = cnToNum(remain.substring(0, splitIdx));
+              v = parseInt(remain.substring(splitIdx));
+          } else {
+              // 只有中文數字：太六 -> 6章 (verse null)
+              c = cnToNum(remain);
+              v = null; 
+          }
+      } else {
+          // 純阿拉伯數字： "5"
+          if (defaultChapter && !bookKey) { // 如果沒有指定書卷，且有預設章 -> 視為節
+              c = defaultChapter;
+              v = parseInt(remain);
+          } else {
+              // 否則視為章 (太5)
+              c = parseInt(remain);
+              v = null;
+          }
+      }
+      
+      return { 
+          book: bookKey, 
+          chapter: c, 
+          verse: v,
+          id: (c && v) ? (c * 1000 + v) : null,
+          isChapterOnly: (c && !v)
+      };
   }
 
-  // === 經文搜尋 ===
+  function parseSearchQuery(input) {
+    input = input.replace(/\s+/g, '');
+    
+    // 檢查是否有區間符號 "-"
+    if (input.includes('-')) {
+        const parts = input.split('-');
+        const startStr = parts[0];
+        const endStr = parts[1];
+        
+        const startObj = parseRefPart(startStr, null, null);
+        if (!startObj.chapter) return null; // 解析失敗
+        
+        // 為了讓 endStr 能正確判斷 "5" 是節還是章，我們傳入 start 的 info
+        // 如果 endStr 是 "5"，且 startObj 是 "太6:1"，則 endStr 應該是 "太6:5"
+        // 如果 endStr 是 "7:1"，則無視 defaultChapter
+        let endBook = startObj.book; // 預設同一本書
+        const endObj = parseRefPart(endStr, startObj.book, startObj.chapter);
+        
+        // 校正 End 的書卷 (如果 parseRefPart 沒抓到，就用 start 的)
+        if (!endObj.book) endObj.book = startObj.book;
+
+        // 計算 ID 範圍
+        let startId = startObj.id;
+        let endId = endObj.id;
+        
+        // 處理整章的情況 (例如: 太5-7)
+        if (startObj.isChapterOnly) startId = startObj.chapter * 1000; // 5000 (0節)
+        if (endObj.isChapterOnly) endId = endObj.chapter * 1000 + 999; // 7999
+        
+        return {
+            type: 'range',
+            book: startObj.book, // 暫不支援跨書卷 (如: 太-可)，只支援同書卷跨章
+            startId: startId,
+            endId: endId,
+            chineseBook: null // 簡單處理
+        };
+    } else {
+        // 單點查詢 (維持原邏輯，但使用新 parser)
+        const obj = parseRefPart(input, null, null);
+        return {
+            type: 'single',
+            book: obj.book,
+            chapter: obj.chapter ? obj.chapter.toString() : null,
+            verse: obj.verse ? obj.verse.toString() : null
+        };
+    }
+  }
+
+  // === 經文搜尋 (支援區間) ===
   function searchVerse() {
     const input = document.getElementById('searchInput').value.trim();
     const resultElement = document.getElementById('result');
@@ -538,17 +630,33 @@
     if (!input) return;
 
     const query = parseSearchQuery(input);
+    if (!query) return; // 解析失敗
+
     let results = [];
     let title = "";
 
-    if (query.book) {
-       if (!query.chapter) return;
-       results = bibleData.filter(e => e.book === query.book && e.chapter === query.chapter && (query.verse === null || e.verse === query.verse));
-       const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book) || query.chineseBook;
-       if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
-    } else if (query.chapter && query.verse) {
-        results = bibleData.filter(e => e.chapter === query.chapter && e.verse === query.verse);
-        if (results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
+    // ★ V4.1 搜尋邏輯分流
+    if (query.type === 'range') {
+        // 區間搜尋
+        results = bibleData.filter(e => 
+            e.book === query.book && 
+            e.id >= query.startId && 
+            e.id <= query.endId
+        );
+        const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book);
+        if(results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">區間搜尋：${input}</div>`;
+        
+    } else {
+        // 單點/整章搜尋 (維持原樣)
+        if (query.book) {
+           if (!query.chapter) return;
+           results = bibleData.filter(e => e.book === query.book && e.chapter === parseInt(query.chapter) && (query.verse === null || e.verse === parseInt(query.verse)));
+           const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book);
+           if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
+        } else if (query.chapter && query.verse) {
+            results = bibleData.filter(e => e.chapter === parseInt(query.chapter) && e.verse === parseInt(query.verse));
+            if (results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
+        }
     }
 
     if (results.length > 0) {
@@ -560,7 +668,6 @@
         const key = JSON.stringify(e);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
 
-        // 修改需求 1: 格式 (太六6)
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="v-row-${idx}" onclick="toggleVerseSelection(${idx})">
             <div>
@@ -577,7 +684,10 @@
       });
       resultElement.innerHTML = htmlBuffer;
     } else {
-      if (query.chapter) resultElement.innerHTML = '<div style="color:#999">查無經文。</div>';
+      // 只有在看起來像是要查經文時才顯示查無
+      if (query.chapter || query.type === 'range') {
+          resultElement.innerHTML = '<div style="color:#999">查無經文。</div>';
+      }
     }
   }
 
@@ -716,7 +826,6 @@
       if (selectedVerses.size === 0) return;
       
       let textBuffer = [];
-      // 容錯機制
       selectedVerses.forEach(jsonStr => {
           try {
             const e = JSON.parse(jsonStr);
