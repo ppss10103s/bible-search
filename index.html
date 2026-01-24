@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 4.3 ✦</title>
+  <title>✦ 咻咻查聖經 4.4 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -248,7 +248,7 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 4.3 ✦</h1>
+  <h1>✦ 咻咻查聖經 4.4 ✦</h1>
   <p class="subtitle">快速檢索・支援多種中文經卷簡稱・可大量選取複製</p>
 
   <div class="card">
@@ -364,13 +364,11 @@
   let bibleData = [];
   let bibleReady = false;
   
-  // 狀態變數
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // 資料暫存與選取
   let currentVerseData = [];        
   let currentKeywordPageData = [];  
   let selectedVerses = new Set();   
@@ -420,7 +418,6 @@
             if (parts.length >= 4) {
               const c = parseInt(parts[1].trim());
               const v = parseInt(parts[2].trim());
-              // 防止 NaN
               if(!isNaN(c) && !isNaN(v)){
                   out.push({
                     book: parts[0].trim(),
@@ -644,6 +641,7 @@
         const key = JSON.stringify(e);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
 
+        // 格式修正：內容 (太六6)
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="v-row-${idx}" onclick="toggleVerseSelection(${idx})">
             <div>
@@ -729,6 +727,7 @@
         const key = JSON.stringify(entry);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
         
+        // 格式修正：內容 (太六6)
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
             <div class="verse-ref">${formattedRef}</div>
@@ -804,6 +803,7 @@
           try {
             const e = JSON.parse(jsonStr);
             const formattedRef = formatRef(e.book, e.chapter, e.verse);
+            // 格式修正：內容 (太六6)
             textBuffer.push(`${e.text} (${formattedRef})`);
           } catch(err) {
             console.warn("Skip invalid");
@@ -839,7 +839,7 @@
   window.toggleKeywordSelection = toggleKeywordSelection;
   window.clearSelection = clearSelection;
 
-  // 統一複製函式：同步優先
+  // 統一複製函式
   function copyToClipboard(text, isBatch = false) {
     const ta = document.createElement('textarea');
     ta.value = text;
