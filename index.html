@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 4.7 ✦</title>
+  <title>✦ 咻咻查聖經 4.8 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -248,13 +248,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 4.7 ✦</h1>
+  <h1>✦ 咻咻查聖經 4.8 ✦</h1>
   <p class="subtitle">快速檢索・支援多種中文經卷簡稱・可大量選取複製</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="輸入範例：7:1 (全經卷)、太7:3-5、太一1">
+      <input type="text" id="searchInput" placeholder="輸入範例：太7.2-3、太一1-5、使徒7">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -289,25 +289,45 @@
   // === 1. 資料庫對照表 (完整支援) ===
   const bookMap = {
     // 舊約
-    '創':'Gen','創世':'Gen','創世記':'Gen', '出':'Exo','出埃及':'Exo','出埃及記':'Exo', 
-    '利':'Lev','利未':'Lev','利未記':'Lev', '民':'Num','民數':'Num','民數記':'Num', 
-    '申':'Deu','申命':'Deu','申命記':'Deu', '書':'Jos','約書亞':'Jos','約書亞記':'Jos',
-    '士':'Jug','士師':'Jug','士師記':'Jug', '得':'Rut','路得':'Rut','路得記':'Rut', 
-    '撒上':'1Sa','撒母耳上':'1Sa','撒母耳記上':'1Sa', '撒下':'2Sa','撒母耳下':'2Sa','撒母耳記下':'2Sa', 
-    '王上':'1Ki','列王上':'1Ki','列王記上':'1Ki', '王下':'2Ki','列王下':'2Ki','列王記下':'2Ki',
-    '代上':'1Ch','歷代上':'1Ch','歷代志上':'1Ch', '代下':'2Ch','歷代下':'2Ch','歷代志下':'2Ch', 
-    '拉':'Ezr','以斯拉':'Ezr','以斯拉記':'Ezr', '尼':'Neh','尼希米':'Neh','尼希米記':'Neh', 
-    '斯':'Est','以斯帖':'Est','以斯帖記':'Est', '伯':'Job','約伯':'Job','約伯記':'Job',
-    '詩':'Psm','詩篇':'Psm', '箴':'Pro','箴言':'Pro', '傳':'Ecc','傳道':'Ecc','傳道書':'Ecc',
-    '歌':'Son','雅歌':'Son', '賽':'Isa','以賽亞':'Isa','以賽亞書':'Isa', 
-    '耶':'Jer','耶利米':'Jer','耶利米書':'Jer', '哀':'Lam','耶利米哀':'Lam','耶利米哀歌':'Lam', 
-    '結':'Eze','以西結':'Eze','以西結書':'Eze', '但':'Dan','但以理':'Dan','但以理書':'Dan',
-    '何':'Hos','何西阿':'Hos','何西阿書':'Hos', '珥':'Joe','約珥':'Joe','約珥書':'Joe', 
-    '摩':'Amo','阿摩司':'Amo','阿摩司書':'Amo', '俄':'Oba','俄巴底亞':'Oba','俄巴底亞書':'Oba', 
-    '拿':'Jon','約拿':'Jon','約拿書':'Jon', '彌':'Mic','彌迦':'Mic','彌迦書':'Mic',
-    '鴻':'Nah','那鴻':'Nah','那鴻書':'Nah', '哈':'Hab','哈巴谷':'Hab','哈巴谷書':'Hab', 
-    '番':'Zep','西番雅':'Zep','西番雅書':'Zep', '該':'Hag','哈該':'Hag','哈該書':'Hag', 
-    '亞':'Zec','撒迦利亞':'Zec','撒迦利亞書':'Zec', '瑪':'Mal','瑪拉基':'Mal','瑪拉基書':'Mal',
+    '創':'Gen','創世':'Gen','創世記':'Gen', 
+    '出':'Exo','出埃及':'Exo','出埃及記':'Exo', 
+    '利':'Lev','利未':'Lev','利未記':'Lev',
+    '民':'Num','民數':'Num','民數記':'Num', 
+    '申':'Deu','申命':'Deu','申命記':'Deu', 
+    '書':'Jos','約書亞':'Jos','約書亞記':'Jos',
+    '士':'Jug','士師':'Jug','士師記':'Jug', 
+    '得':'Rut','路得':'Rut','路得記':'Rut', 
+    '撒上':'1Sa','撒母耳上':'1Sa','撒母耳記上':'1Sa',
+    '撒下':'2Sa','撒母耳下':'2Sa','撒母耳記下':'2Sa', 
+    '王上':'1Ki','列王上':'1Ki','列王記上':'1Ki', 
+    '王下':'2Ki','列王下':'2Ki','列王記下':'2Ki',
+    '代上':'1Ch','歷代上':'1Ch','歷代志上':'1Ch', 
+    '代下':'2Ch','歷代下':'2Ch','歷代志下':'2Ch', 
+    '拉':'Ezr','以斯拉':'Ezr','以斯拉記':'Ezr',
+    '尼':'Neh','尼希米':'Neh','尼希米記':'Neh', 
+    '斯':'Est','以斯帖':'Est','以斯帖記':'Est', 
+    '伯':'Job','約伯':'Job','約伯記':'Job',
+    '詩':'Psm','詩篇':'Psm', 
+    '箴':'Pro','箴言':'Pro', 
+    '傳':'Ecc','傳道':'Ecc','傳道書':'Ecc',
+    '歌':'Son','雅歌':'Son', 
+    '賽':'Isa','以賽亞':'Isa','以賽亞書':'Isa', 
+    '耶':'Jer','耶利米':'Jer','耶利米書':'Jer',
+    '哀':'Lam','耶利米哀':'Lam','耶利米哀歌':'Lam', 
+    '結':'Eze','以西結':'Eze','以西結書':'Eze', 
+    '但':'Dan','但以理':'Dan','但以理書':'Dan',
+    '何':'Hos','何西阿':'Hos','何西阿書':'Hos', 
+    '珥':'Joe','約珥':'Joe','約珥書':'Joe', 
+    '摩':'Amo','阿摩司':'Amo','阿摩司書':'Amo',
+    '俄':'Oba','俄巴底亞':'Oba','俄巴底亞書':'Oba', 
+    '拿':'Jon','約拿':'Jon','約拿書':'Jon', 
+    '彌':'Mic','彌迦':'Mic','彌迦書':'Mic',
+    '鴻':'Nah','那鴻':'Nah','那鴻書':'Nah', 
+    '哈':'Hab','哈巴谷':'Hab','哈巴谷書':'Hab', 
+    '番':'Zep','西番雅':'Zep','西番雅書':'Zep',
+    '該':'Hag','哈該':'Hag','哈該書':'Hag', 
+    '亞':'Zec','撒迦利亞':'Zec','撒迦利亞書':'Zec', 
+    '瑪':'Mal','瑪拉基':'Mal','瑪拉基書':'Mal',
     // 新約
     '太':'Mat','馬太':'Mat','馬太福音':'Mat', '可':'Mak','馬可':'Mak','馬可福音':'Mak', 
     '路':'Luk','路加':'Luk','路加福音':'Luk', '約':'Jhn','約翰':'Jhn','約翰福音':'Jhn', 
@@ -463,51 +483,59 @@
       return `${shortBook}${cnChapter}${verse}`;
   }
 
-  // === 核心：修正區間解析 ===
+  // === ★★★ V4.8 核心修正：邏輯簡化與強化 ★★★
   function parseRefPart(str, defaultBook, defaultChapter) {
+      // 1. 先從頭匹配書卷名
       let bookKey = defaultBook;
       let remain = str;
+      let hasBookInStr = false; // 標記是否使用者有輸入書卷
+
       for (const key of sortedBookNames) {
           if (str.startsWith(key)) {
               bookKey = bookMap[key];
               remain = str.substring(key.length);
+              hasBookInStr = true; // 發現書卷名
               break;
           }
       }
       
       remain = remain.replace(/[.．。,，]/g, ':');
       let c, v;
-      const hasSeparator = remain.includes(':');
-      const hasChinese = /[一二三四五六七八九十百]/.test(remain);
       
-      if (hasSeparator) {
+      let splitIdx = -1;
+      const isDigit = (char) => /[0-9]/.test(char);
+      const isCnDigit = (char) => /[一二三四五六七八九十百]/.test(char);
+      
+      // 找中文數字與阿拉伯數字的交界
+      for(let i=0; i<remain.length-1; i++) {
+          if(isCnDigit(remain[i]) && isDigit(remain[i+1])) {
+              splitIdx = i+1; break; 
+          }
+      }
+
+      if (remain.includes(':')) {
+          // 有冒號: "7:2"
           const p = remain.split(':');
           c = cnToNum(p[0]) || parseInt(p[0]);
           v = cnToNum(p[1]) || parseInt(p[1]);
-      } else if (hasChinese) {
-          let splitIdx = -1;
-          const isDigit = (c) => /[0-9]/.test(c);
-          const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
-          for(let i=0; i<remain.length-1; i++) {
-              if(isCnDigit(remain[i]) && isDigit(remain[i+1])) { splitIdx = i+1; break; }
-          }
-          if (splitIdx !== -1) {
-              c = cnToNum(remain.substring(0, splitIdx));
-              v = parseInt(remain.substring(splitIdx));
-          } else {
-              c = cnToNum(remain);
-              v = null; 
-          }
+      } else if (splitIdx !== -1) {
+          // 混合型: "一1"
+          c = cnToNum(remain.substring(0, splitIdx));
+          v = parseInt(remain.substring(splitIdx));
       } else {
-          // 純數字邏輯
-          if (defaultChapter && !bookKey) {
+          // 只有一段數字
+          const val = cnToNum(remain) || parseInt(remain);
+          
+          // ★ 關鍵修正：如果這個字串裡沒有書卷名，且前面已經有章了，那這就是節！
+          if (defaultChapter && !hasBookInStr) {
               c = defaultChapter;
-              v = parseInt(remain);
+              v = val;
           } else {
-              c = parseInt(remain);
+              c = val;
               v = null;
           }
       }
+      
       return { 
           book: bookKey, 
           chapter: c, 
@@ -518,46 +546,61 @@
   }
 
   function parseSearchQuery(input) {
-    input = input.replace(/\s+/g, '')
-                 .replace(/[.．。,，]/g, ':') 
-                 .replace(/[—~]/g, '-');
-    
-    // 強制分隔中文與數字 (太一1 -> 太一:1)
-    input = input.replace(/([一二三四五六七八九十百])(\d)/g, '$1:$2');
+    // 1. 全域清洗
+    let clean = input.replace(/\s+/g, '')
+                     .replace(/[.．。,，]/g, ':') 
+                     .replace(/[—~]/g, '-');
 
-    if (input.includes('-')) {
-        const parts = input.split('-');
-        const startStr = parts[0];
-        const endStr = parts[1];
-        
+    // 2. 中文與數字分隔 (太一1 -> 太一:1)
+    clean = clean.replace(/([一二三四五六七八九十百])(\d)/g, '$1:$2');
+
+    // 3. 判斷區間
+    if (clean.includes('-')) {
+        const parts = clean.split('-');
+        const startStr = parts[0]; 
+        const endStr = parts[1];   
+
         const startObj = parseRefPart(startStr, null, null);
-        if (!startObj.chapter) return null; 
+        if (!startObj.chapter) return null;
+
+        // ★ 傳入 context: 如果 start 有 verse，則 end 的純數字應視為 verse (contextChap 有值)
+        // 如果 start 只有 chapter，則 end 的純數字應視為 chapter (contextChap 為 null)
+        const contextChap = startObj.verse ? startObj.chapter : null;
         
-        let endBook = startObj.book; 
-        const contextChap = startObj.verse ? startObj.chapter : null; 
-        
+        let endBook = startObj.book;
         const endObj = parseRefPart(endStr, startObj.book, contextChap);
+        
         if (!endObj.book) endObj.book = startObj.book;
 
         let startId = startObj.id;
-        let endId = endObj.id;
+        let endId = 0;
+
+        // 計算 EndID
+        if (endObj.verse) {
+            // 有指定節
+            endId = endObj.chapter * 1000 + endObj.verse;
+        } else {
+            // 只有章 -> 視為該章最後一節
+            endId = endObj.chapter * 1000 + 999;
+        }
         
-        if (startObj.isChapterOnly) startId = startObj.chapter * 1000; 
-        if (endObj.isChapterOnly) endId = endObj.chapter * 1000 + 999; 
-        
+        // 修正 Start 是整章的情況
+        if (startObj.isChapterOnly) startId = startObj.chapter * 1000;
+
         return {
             type: 'range',
-            book: startObj.book, 
+            book: startObj.book,
             startId: startId,
-            endId: endId,
+            endId: endId
         };
+
     } else {
-        const obj = parseRefPart(input, null, null);
+        const obj = parseRefPart(clean, null, null);
         return {
             type: 'single',
             book: obj.book,
-            chapter: obj.chapter ? obj.chapter.toString() : null,
-            verse: obj.verse ? obj.verse.toString() : null
+            chapter: obj.chapter,
+            verse: obj.verse
         };
     }
   }
@@ -586,15 +629,13 @@
         if(results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">區間搜尋：${input}</div>`;
         
     } else {
-        // 單點 & 全經卷
+        // 單點
         if (query.book) {
-           // 指定卷 (太7)
            if (!query.chapter) return;
            results = bibleData.filter(e => e.book === query.book && e.chapter === parseInt(query.chapter) && (query.verse === null || e.verse === parseInt(query.verse)));
            const cBookName = Object.keys(bookMap).find(k => bookMap[k] === query.book);
            if (results.length > 0 && !query.verse) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">${cBookName} 第 ${query.chapter} 章</div>`;
         } else if (query.chapter && query.verse) {
-            // ★ 全經卷 (7:1) - 關鍵修正：放回這裡
             results = bibleData.filter(e => e.chapter === parseInt(query.chapter) && e.verse === parseInt(query.verse));
             if (results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; color:var(--primary-color)">全經卷搜尋：第 ${query.chapter} 章 第 ${query.verse} 節</div>`;
         }
