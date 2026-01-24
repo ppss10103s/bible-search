@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 4.1 ✦</title>
+  <title>✦ 咻咻查聖經 4.2 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -31,11 +31,7 @@
       padding-bottom: 120px;
     }
 
-    /* === 2. 佈局容器 === */
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-    }
+    .container { max-width: 800px; margin: 0 auto; }
 
     h1 {
       text-align: center;
@@ -51,7 +47,7 @@
       margin-bottom: 30px;
     }
 
-    /* === 3. 卡片式設計 === */
+    /* === 卡片與搜尋 === */
     .card {
       background: var(--card-bg);
       border-radius: var(--radius);
@@ -66,7 +62,6 @@
       flex-wrap: wrap;
     }
 
-    /* === 4. 輸入框與按鈕 === */
     input[type="text"] {
       flex: 1;
       padding: 12px 15px;
@@ -89,7 +84,7 @@
     }
     button:hover { background-color: #4e342e; }
     
-    /* === 5. 分頁區塊 === */
+    /* === 分頁 === */
     .pagination {
         display: flex;
         justify-content: center;
@@ -115,7 +110,7 @@
         font-size: 14px;
     }
 
-    /* === 6. 搜尋結果列表 === */
+    /* === 搜尋結果 === */
     .result-item {
       padding: 15px;
       border-bottom: 1px solid #eee;
@@ -129,10 +124,8 @@
     
     .result-item:last-child { border-bottom: none; }
 
-    /* 選取狀態 */
     .result-item.selected {
         background-color: var(--selected-bg);
-        border-color: transparent;
     }
 
     .verse-ref {
@@ -153,7 +146,7 @@
       color: #000;
     }
 
-    /* 單節複製按鈕 */
+    /* === 按鈕列 === */
     .action-bar {
       display: flex;
       justify-content: flex-end;
@@ -176,7 +169,7 @@
       border-color: #999;
     }
 
-    /* === 7. 浮動批次複製按鈕 (FAB) === */
+    /* === 浮動操作按鈕 === */
     .fab-container {
         position: fixed;
         bottom: 30px;
@@ -224,7 +217,7 @@
     }
     .fab-close:hover { color: #fff; }
 
-    /* === Toast 提示 === */
+    /* === Toast === */
     .toast {
       visibility: hidden;
       min-width: 200px;
@@ -244,7 +237,6 @@
     }
     .toast.show { visibility: visible; opacity: 1; }
 
-    /* RWD */
     @media (max-width: 600px) {
       body { padding: 10px; padding-bottom: 120px; }
       .card { padding: 15px; }
@@ -256,7 +248,7 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 4.1 ✦</h1>
+  <h1>✦ 咻咻查聖經 4.2 ✦</h1>
   <p class="subtitle">快速檢索・支援多種中文經卷簡稱・可大量選取複製</p>
 
   <div class="card">
@@ -273,9 +265,7 @@
       <input type="text" id="keywordInput" placeholder="使用空格查詢多項關鍵字，減號可排除">
       <button id="keywordBtn">搜尋</button>
     </div>
-    
     <div id="keywordResult" style="margin-top: 15px;"></div>
-    
     <div id="paginationContainer" class="pagination" style="display:none;">
         <span class="page-label">第</span>
         <input type="number" id="pageInput" class="page-input" value="1" min="1">
@@ -296,76 +286,40 @@
 <div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 1. 資料庫對照表 (完整支援) ===
+  // === 1. 資料庫對照表 ===
   const bookMap = {
-    // 舊約
-    '創':'Gen','創世':'Gen','創世記':'Gen', 
-    '出':'Exo','出埃及':'Exo','出埃及記':'Exo', 
-    '利':'Lev','利未':'Lev','利未記':'Lev',
-    '民':'Num','民數':'Num','民數記':'Num', 
-    '申':'Deu','申命':'Deu','申命記':'Deu', 
-    '書':'Jos','約書亞':'Jos','約書亞記':'Jos',
-    '士':'Jug','士師':'Jug','士師記':'Jug', 
-    '得':'Rut','路得':'Rut','路得記':'Rut', 
-    '撒上':'1Sa','撒母耳上':'1Sa','撒母耳記上':'1Sa',
-    '撒下':'2Sa','撒母耳下':'2Sa','撒母耳記下':'2Sa', 
-    '王上':'1Ki','列王上':'1Ki','列王記上':'1Ki', 
-    '王下':'2Ki','列王下':'2Ki','列王記下':'2Ki',
-    '代上':'1Ch','歷代上':'1Ch','歷代志上':'1Ch', 
-    '代下':'2Ch','歷代下':'2Ch','歷代志下':'2Ch', 
-    '拉':'Ezr','以斯拉':'Ezr','以斯拉記':'Ezr',
-    '尼':'Neh','尼希米':'Neh','尼希米記':'Neh', 
-    '斯':'Est','以斯帖':'Est','以斯帖記':'Est', 
-    '伯':'Job','約伯':'Job','約伯記':'Job',
-    '詩':'Psm','詩篇':'Psm', 
-    '箴':'Pro','箴言':'Pro', 
-    '傳':'Ecc','傳道':'Ecc','傳道書':'Ecc',
-    '歌':'Son','雅歌':'Son', 
-    '賽':'Isa','以賽亞':'Isa','以賽亞書':'Isa', 
-    '耶':'Jer','耶利米':'Jer','耶利米書':'Jer',
-    '哀':'Lam','耶利米哀':'Lam','耶利米哀歌':'Lam', 
-    '結':'Eze','以西結':'Eze','以西結書':'Eze', 
-    '但':'Dan','但以理':'Dan','但以理書':'Dan',
-    '何':'Hos','何西阿':'Hos','何西阿書':'Hos', 
-    '珥':'Joe','約珥':'Joe','約珥書':'Joe', 
-    '摩':'Amo','阿摩司':'Amo','阿摩司書':'Amo',
-    '俄':'Oba','俄巴底亞':'Oba','俄巴底亞書':'Oba', 
-    '拿':'Jon','約拿':'Jon','約拿書':'Jon', 
-    '彌':'Mic','彌迦':'Mic','彌迦書':'Mic',
-    '鴻':'Nah','那鴻':'Nah','那鴻書':'Nah', 
-    '哈':'Hab','哈巴谷':'Hab','哈巴谷書':'Hab', 
-    '番':'Zep','西番雅':'Zep','西番雅書':'Zep',
-    '該':'Hag','哈該':'Hag','哈該書':'Hag', 
-    '亞':'Zec','撒迦利亞':'Zec','撒迦利亞書':'Zec', 
-    '瑪':'Mal','瑪拉基':'Mal','瑪拉基書':'Mal',
-    
-    // 新約
-    '太':'Mat','馬太':'Mat','馬太福音':'Mat', 
-    '可':'Mak','馬可':'Mak','馬可福音':'Mak', 
-    '路':'Luk','路加':'Luk','路加福音':'Luk',
-    '約':'Jhn','約翰':'Jhn','約翰福音':'Jhn', 
-    '徒':'Act','使徒':'Act','使徒行傳':'Act', 
-    '羅':'Rom','羅馬':'Rom','羅馬書':'Rom',
-    '林前':'1Co','哥林多前':'1Co','哥林多前書':'1Co', 
-    '林後':'2Co','哥林多後':'2Co','哥林多後書':'2Co', 
-    '加':'Gal','加拉太':'Gal','加拉太書':'Gal',
-    '弗':'Eph','以弗所':'Eph','以弗所書':'Eph', 
-    '腓':'Phl','腓立比':'Phl','腓立比書':'Phl', 
-    '西':'Col','歌羅西':'Col','歌羅西書':'Col',
-    '帖前':'1Ts','帖撒羅尼迦前':'1Ts','帖撒羅尼迦前書':'1Ts', 
-    '帖後':'2Ts','帖撒羅尼迦後':'2Ts','帖撒羅尼迦後書':'2Ts', 
-    '提前':'1Ti','提摩太前':'1Ti','提摩太前書':'1Ti',
-    '提後':'2Ti','提摩太後':'2Ti','提摩太後書':'2Ti', 
-    '多':'Tit','提多':'Tit','提多書':'Tit', 
-    '門':'Phm','腓利門':'Phm','腓利門書':'Phm',
-    '來':'Heb','希伯來':'Heb','希伯來書':'Heb', 
-    '雅':'Jas','雅各':'Jas','雅各書':'Jas', 
-    '彼前':'1Pe','彼得前':'1Pe','彼得前書':'1Pe',
-    '彼後':'2Pe','彼得後':'2Pe','彼得後書':'2Pe', 
-    '約一':'1Jn','約翰一':'1Jn','約翰一書':'1Jn', 
-    '約二':'2Jn','約翰二':'2Jn','約翰二書':'2Jn',
-    '約三':'3Jn','約翰三':'3Jn','約翰三書':'3Jn', 
-    '猶':'Jud','猶大':'Jud','猶大書':'Jud', 
+    '創':'Gen','創世':'Gen','創世記':'Gen', '出':'Exo','出埃及':'Exo','出埃及記':'Exo', 
+    '利':'Lev','利未':'Lev','利未記':'Lev', '民':'Num','民數':'Num','民數記':'Num', 
+    '申':'Deu','申命':'Deu','申命記':'Deu', '書':'Jos','約書亞':'Jos','約書亞記':'Jos',
+    '士':'Jug','士師':'Jug','士師記':'Jug', '得':'Rut','路得':'Rut','路得記':'Rut', 
+    '撒上':'1Sa','撒母耳上':'1Sa','撒母耳記上':'1Sa', '撒下':'2Sa','撒母耳下':'2Sa','撒母耳記下':'2Sa', 
+    '王上':'1Ki','列王上':'1Ki','列王記上':'1Ki', '王下':'2Ki','列王下':'2Ki','列王記下':'2Ki',
+    '代上':'1Ch','歷代上':'1Ch','歷代志上':'1Ch', '代下':'2Ch','歷代下':'2Ch','歷代志下':'2Ch', 
+    '拉':'Ezr','以斯拉':'Ezr','以斯拉記':'Ezr', '尼':'Neh','尼希米':'Neh','尼希米記':'Neh', 
+    '斯':'Est','以斯帖':'Est','以斯帖記':'Est', '伯':'Job','約伯':'Job','約伯記':'Job',
+    '詩':'Psm','詩篇':'Psm', '箴':'Pro','箴言':'Pro', '傳':'Ecc','傳道':'Ecc','傳道書':'Ecc',
+    '歌':'Son','雅歌':'Son', '賽':'Isa','以賽亞':'Isa','以賽亞書':'Isa', 
+    '耶':'Jer','耶利米':'Jer','耶利米書':'Jer', '哀':'Lam','耶利米哀':'Lam','耶利米哀歌':'Lam', 
+    '結':'Eze','以西結':'Eze','以西結書':'Eze', '但':'Dan','但以理':'Dan','但以理書':'Dan',
+    '何':'Hos','何西阿':'Hos','何西阿書':'Hos', '珥':'Joe','約珥':'Joe','約珥書':'Joe', 
+    '摩':'Amo','阿摩司':'Amo','阿摩司書':'Amo', '俄':'Oba','俄巴底亞':'Oba','俄巴底亞書':'Oba', 
+    '拿':'Jon','約拿':'Jon','約拿書':'Jon', '彌':'Mic','彌迦':'Mic','彌迦書':'Mic',
+    '鴻':'Nah','那鴻':'Nah','那鴻書':'Nah', '哈':'Hab','哈巴谷':'Hab','哈巴谷書':'Hab', 
+    '番':'Zep','西番雅':'Zep','西番雅書':'Zep', '該':'Hag','哈該':'Hag','哈該書':'Hag', 
+    '亞':'Zec','撒迦利亞':'Zec','撒迦利亞書':'Zec', '瑪':'Mal','瑪拉基':'Mal','瑪拉基書':'Mal',
+    '太':'Mat','馬太':'Mat','馬太福音':'Mat', '可':'Mak','馬可':'Mak','馬可福音':'Mak', 
+    '路':'Luk','路加':'Luk','路加福音':'Luk', '約':'Jhn','約翰':'Jhn','約翰福音':'Jhn', 
+    '徒':'Act','使徒':'Act','使徒行傳':'Act', '羅':'Rom','羅馬':'Rom','羅馬書':'Rom',
+    '林前':'1Co','哥林多前':'1Co','哥林多前書':'1Co', '林後':'2Co','哥林多後':'2Co','哥林多後書':'2Co', 
+    '加':'Gal','加拉太':'Gal','加拉太書':'Gal', '弗':'Eph','以弗所':'Eph','以弗所書':'Eph', 
+    '腓':'Phl','腓立比':'Phl','腓立比書':'Phl', '西':'Col','歌羅西':'Col','歌羅西書':'Col',
+    '帖前':'1Ts','帖撒羅尼迦前':'1Ts','帖撒羅尼迦前書':'1Ts', '帖後':'2Ts','帖撒羅尼迦後':'2Ts','帖撒羅尼迦後書':'2Ts', 
+    '提前':'1Ti','提摩太前':'1Ti','提摩太前書':'1Ti', '提後':'2Ti','提摩太後':'2Ti','提摩太後書':'2Ti', 
+    '多':'Tit','提多':'Tit','提多書':'Tit', '門':'Phm','腓利門':'Phm','腓利門書':'Phm',
+    '來':'Heb','希伯來':'Heb','希伯來書':'Heb', '雅':'Jas','雅各':'Jas','雅各書':'Jas', 
+    '彼前':'1Pe','彼得前':'1Pe','彼得前書':'1Pe', '彼後':'2Pe','彼得後':'2Pe','彼得後書':'2Pe', 
+    '約一':'1Jn','約翰一':'1Jn','約翰一書':'1Jn', '約二':'2Jn','約翰二':'2Jn','約翰二書':'2Jn',
+    '約三':'3Jn','約翰三':'3Jn','約翰三書':'3Jn', '猶':'Jud','猶大':'Jud','猶大書':'Jud', 
     '啟':'Rev','啟示':'Rev','啟示錄':'Rev'
   };
 
@@ -374,13 +328,13 @@
   let bibleData = [];
   let bibleReady = false;
   
-  // 狀態
+  // 狀態變數
   let currentKeywordResults = [];
   let currentPage = 1;
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // 資料分流
+  // 資料暫存與選取
   let currentVerseData = [];        
   let currentKeywordPageData = [];  
   let selectedVerses = new Set();   
@@ -435,7 +389,7 @@
                 chapter: c,
                 verse: v,
                 text: parts.slice(3).join(',').trim(),
-                id: c * 1000 + v // ★ V4.1 核心：建立分數索引 (章*1000 + 節)
+                id: c * 1000 + v 
               });
             }
           }
@@ -507,9 +461,8 @@
       return `${shortBook}${cnChapter}${verse}`;
   }
 
-  // === ★ V4.1 核心：進階查詢解析器 (支援區間) ===
+  // === 查詢解析器 (修正區間判斷) ===
   function parseRefPart(str, defaultBook, defaultChapter) {
-      // 移除可能的書卷名
       let bookKey = defaultBook;
       let remain = str;
       for (const key of sortedBookNames) {
@@ -521,12 +474,7 @@
       }
       
       remain = remain.replace(/[.．。,，]/g, ':');
-      
-      // 判斷是否包含章節分隔
       let c, v;
-      
-      // 判斷邏輯：如果包含冒號，或者有中文數字，或者書卷名改變，視為「有指定章」
-      // 但如果只是純阿拉伯數字，且前面已經有預設章，則視為「同章的節」
       const hasSeparator = remain.includes(':');
       const hasChinese = /[一二三四五六七八九十百]/.test(remain);
       
@@ -535,9 +483,6 @@
           c = cnToNum(p[0]) || parseInt(p[0]);
           v = cnToNum(p[1]) || parseInt(p[1]);
       } else if (hasChinese) {
-          // 簡易切分：太六3 -> 六(章) 3(節)
-          // 這裡簡化處理：假設有中文數字就是有章
-          // 尋找切分點
           let splitIdx = -1;
           const isDigit = (c) => /[0-9]/.test(c);
           const isCnDigit = (c) => /[一二三四五六七八九十百]/.test(c);
@@ -548,22 +493,19 @@
               c = cnToNum(remain.substring(0, splitIdx));
               v = parseInt(remain.substring(splitIdx));
           } else {
-              // 只有中文數字：太六 -> 6章 (verse null)
               c = cnToNum(remain);
               v = null; 
           }
       } else {
-          // 純阿拉伯數字： "5"
-          if (defaultChapter && !bookKey) { // 如果沒有指定書卷，且有預設章 -> 視為節
+          // 純數字邏輯修正：如果有預設章，這就一定是節
+          if (defaultChapter && !bookKey) {
               c = defaultChapter;
               v = parseInt(remain);
           } else {
-              // 否則視為章 (太5)
               c = parseInt(remain);
               v = null;
           }
       }
-      
       return { 
           book: bookKey, 
           chapter: c, 
@@ -576,41 +518,36 @@
   function parseSearchQuery(input) {
     input = input.replace(/\s+/g, '');
     
-    // 檢查是否有區間符號 "-"
-    if (input.includes('-')) {
-        const parts = input.split('-');
+    // 支援多種區間符號
+    const rangeSep = input.match(/[-~—]/); 
+    
+    if (rangeSep) {
+        const parts = input.split(rangeSep[0]);
         const startStr = parts[0];
         const endStr = parts[1];
         
         const startObj = parseRefPart(startStr, null, null);
-        if (!startObj.chapter) return null; // 解析失敗
+        if (!startObj.chapter) return null; 
         
-        // 為了讓 endStr 能正確判斷 "5" 是節還是章，我們傳入 start 的 info
-        // 如果 endStr 是 "5"，且 startObj 是 "太6:1"，則 endStr 應該是 "太6:5"
-        // 如果 endStr 是 "7:1"，則無視 defaultChapter
-        let endBook = startObj.book; // 預設同一本書
+        let endBook = startObj.book; 
+        // 修正重點：傳入 startObj.chapter 作為預設章
         const endObj = parseRefPart(endStr, startObj.book, startObj.chapter);
         
-        // 校正 End 的書卷 (如果 parseRefPart 沒抓到，就用 start 的)
         if (!endObj.book) endObj.book = startObj.book;
 
-        // 計算 ID 範圍
         let startId = startObj.id;
         let endId = endObj.id;
         
-        // 處理整章的情況 (例如: 太5-7)
-        if (startObj.isChapterOnly) startId = startObj.chapter * 1000; // 5000 (0節)
-        if (endObj.isChapterOnly) endId = endObj.chapter * 1000 + 999; // 7999
+        if (startObj.isChapterOnly) startId = startObj.chapter * 1000; 
+        if (endObj.isChapterOnly) endId = endObj.chapter * 1000 + 999; 
         
         return {
             type: 'range',
-            book: startObj.book, // 暫不支援跨書卷 (如: 太-可)，只支援同書卷跨章
+            book: startObj.book, 
             startId: startId,
             endId: endId,
-            chineseBook: null // 簡單處理
         };
     } else {
-        // 單點查詢 (維持原邏輯，但使用新 parser)
         const obj = parseRefPart(input, null, null);
         return {
             type: 'single',
@@ -621,7 +558,7 @@
     }
   }
 
-  // === 經文搜尋 (支援區間) ===
+  // === 經文搜尋 ===
   function searchVerse() {
     const input = document.getElementById('searchInput').value.trim();
     const resultElement = document.getElementById('result');
@@ -630,14 +567,12 @@
     if (!input) return;
 
     const query = parseSearchQuery(input);
-    if (!query) return; // 解析失敗
+    if (!query) return;
 
     let results = [];
     let title = "";
 
-    // ★ V4.1 搜尋邏輯分流
     if (query.type === 'range') {
-        // 區間搜尋
         results = bibleData.filter(e => 
             e.book === query.book && 
             e.id >= query.startId && 
@@ -647,7 +582,6 @@
         if(results.length > 0) title = `<div style="margin-bottom:10px; font-weight:bold; font-size:1.1rem">區間搜尋：${input}</div>`;
         
     } else {
-        // 單點/整章搜尋 (維持原樣)
         if (query.book) {
            if (!query.chapter) return;
            results = bibleData.filter(e => e.book === query.book && e.chapter === parseInt(query.chapter) && (query.verse === null || e.verse === parseInt(query.verse)));
@@ -661,13 +595,13 @@
 
     if (results.length > 0) {
       currentVerseData = results; 
-      
       let htmlBuffer = title;
       results.forEach((e, idx) => {
         const formattedRef = formatRef(e.book, e.chapter, e.verse);
         const key = JSON.stringify(e);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
 
+        // 修正需求 1: 格式
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="v-row-${idx}" onclick="toggleVerseSelection(${idx})">
             <div>
@@ -684,7 +618,6 @@
       });
       resultElement.innerHTML = htmlBuffer;
     } else {
-      // 只有在看起來像是要查經文時才顯示查無
       if (query.chapter || query.type === 'range') {
           resultElement.innerHTML = '<div style="color:#999">查無經文。</div>';
       }
@@ -754,7 +687,7 @@
         const key = JSON.stringify(entry);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
         
-        // 修改需求 1: 格式 (太六6)
+        // 修正需求 1: 格式
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
             <div class="verse-ref">${formattedRef}</div>
@@ -821,7 +754,7 @@
       updateFab();
   }
 
-  // === 複製核心 (同步) ===
+  // === 複製核心 (同步修正) ===
   function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
@@ -830,7 +763,7 @@
           try {
             const e = JSON.parse(jsonStr);
             const formattedRef = formatRef(e.book, e.chapter, e.verse);
-            // 修改需求 1: 批次複製格式 (太六6)
+            // 修正需求 1: 格式
             textBuffer.push(`${e.text} (${formattedRef})`);
           } catch(err) {
             console.warn("Skip invalid");
@@ -838,6 +771,7 @@
       });
 
       if (textBuffer.length > 0) {
+        // 使用同步執行，不再使用 async/await
         copyToClipboard(textBuffer.join('\n'), true); 
         clearSelection();
       }
@@ -866,6 +800,7 @@
   window.toggleKeywordSelection = toggleKeywordSelection;
   window.clearSelection = clearSelection;
 
+  // 統一複製函式：同步優先 (解決本地檔案問題)
   function copyToClipboard(text, isBatch = false) {
     const ta = document.createElement('textarea');
     ta.value = text;
@@ -874,6 +809,7 @@
     document.body.appendChild(ta);
     ta.select();
     try {
+      // 這是目前瀏覽器支援度最廣且同步的方法
       const successful = document.execCommand('copy');
       if (successful) {
           showToast(isBatch ? `已複製 ${selectedVerses.size} 節` : '已複製');
