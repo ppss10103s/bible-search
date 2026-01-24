@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>✦ 咻咻查聖經 3.9 ✦</title>
+  <title>✦ 咻咻查聖經 4.0 ✦</title>
   <link rel="icon" href="data:,">
   <style>
     /* === 1. 基礎設定 & 變數 === */
@@ -256,13 +256,13 @@
 <body>
 
 <div class="container">
-  <h1>✦ 咻咻查聖經 3.9 ✦</h1>
-  <p class="subtitle">快速檢索・支援多種簡稱・可批次選取複製</p>
+  <h1>✦ 咻咻查聖經 4.0 ✦</h1>
+  <p class="subtitle">快速檢索・支援多種中文經卷簡稱・可大量選取複製</p>
 
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">經文查詢</label>
     <div class="search-group">
-      <input type="text" id="searchInput" placeholder="輸入範例：太6:33、馬太五、腓立比書4">
+      <input type="text" id="searchInput" placeholder="輸入範例：太7:3、1.7、使徒7、約伯記八1">
     </div>
     <div id="result" style="margin-top: 15px;"></div>
   </div>
@@ -270,7 +270,7 @@
   <div class="card">
     <label style="display:block; margin-bottom:8px; font-weight:bold; color:var(--primary-color);">關鍵字查詢</label>
     <div class="search-group">
-      <input type="text" id="keywordInput" placeholder="關鍵字空格分隔，減號可排除 (如：光 -暗)">
+      <input type="text" id="keywordInput" placeholder="查詢多項關鍵字用空格，使用減號可排除">
       <button id="keywordBtn">搜尋</button>
     </div>
     
@@ -296,7 +296,7 @@
 <div id="toast" class="toast">已複製</div>
 
 <script>
-  // === 1. 資料庫對照表 ===
+  // === 1. 資料庫對照表 (完整支援) ===
   const bookMap = {
     // 舊約
     '創':'Gen','創世':'Gen','創世記':'Gen', 
@@ -380,10 +380,10 @@
   const ITEMS_PER_PAGE = 100;
   let currentIncludeKeywords = []; 
   
-  // === 【關鍵修改】資料分流，避免打架 ===
-  let currentVerseData = [];        // 經文搜尋的結果
-  let currentKeywordPageData = [];  // 關鍵字搜尋(當前頁)的結果
-  let selectedVerses = new Set();   // 已選取的經文 ID 集合
+  // 資料分流
+  let currentVerseData = [];        
+  let currentKeywordPageData = [];  
+  let selectedVerses = new Set();   
 
   window.addEventListener('load', () => {
     const searchInput = document.getElementById('searchInput');
@@ -552,7 +552,6 @@
     }
 
     if (results.length > 0) {
-      // ★ 修正重點：使用專屬變數，不與關鍵字搜尋混用
       currentVerseData = results; 
       
       let htmlBuffer = title;
@@ -561,7 +560,7 @@
         const key = JSON.stringify(e);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
 
-        // ID 使用 v-row 前綴，區隔 DOM
+        // 修改需求 1: 格式 (太六6)
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="v-row-${idx}" onclick="toggleVerseSelection(${idx})">
             <div>
@@ -569,7 +568,7 @@
               <span class="verse-text">${e.text}</span>
             </div>
             <div class="action-bar">
-               <button class="copy-btn" onclick='copySingle(event, "${formattedRef} ${e.text}")'>
+               <button class="copy-btn" onclick='copySingle(event, "${e.text} (${formattedRef})")'>
                  複製
                </button>
             </div>
@@ -631,7 +630,6 @@
       const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
       
       const pageData = currentKeywordResults.slice(startIdx, endIdx);
-      // ★ 修正重點：使用專屬變數
       currentKeywordPageData = pageData; 
 
       const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -646,13 +644,13 @@
         const key = JSON.stringify(entry);
         const isSelected = selectedVerses.has(key) ? 'selected' : '';
         
-        // ID 使用 k-row 前綴
+        // 修改需求 1: 格式 (太六6)
         htmlBuffer += `
           <div class="result-item ${isSelected}" id="k-row-${idx}" onclick="toggleKeywordSelection(${idx})">
             <div class="verse-ref">${formattedRef}</div>
             <div class="verse-text">${highlightedText}</div>
              <div class="action-bar">
-               <button class="copy-btn" onclick='copySingle(event, "${formattedRef} ${entry.text}")'>複製</button>
+               <button class="copy-btn" onclick='copySingle(event, "${entry.text} (${formattedRef})")'>複製</button>
             </div>
           </div>
         `;
@@ -670,9 +668,8 @@
       }
   }
   
-  // === 選取邏輯 (分開處理) ===
+  // === 選取邏輯 ===
   function toggleVerseSelection(idx) {
-      // 讀取經文搜尋的暫存資料
       const entry = currentVerseData[idx];
       if (!entry) return;
       const key = JSON.stringify(entry);
@@ -681,7 +678,6 @@
   }
   
   function toggleKeywordSelection(idx) {
-      // 讀取關鍵字搜尋的暫存資料
       const entry = currentKeywordPageData[idx];
       if (!entry) return;
       const key = JSON.stringify(entry);
@@ -715,24 +711,24 @@
       updateFab();
   }
 
-  // === 複製核心 (使用 fallback 確保相容性) ===
+  // === 複製核心 (同步) ===
   function copySelectedVerses() {
       if (selectedVerses.size === 0) return;
       
       let textBuffer = [];
-      // 直接遍歷 Set (保持加入順序)
+      // 容錯機制
       selectedVerses.forEach(jsonStr => {
           try {
             const e = JSON.parse(jsonStr);
             const formattedRef = formatRef(e.book, e.chapter, e.verse);
-            textBuffer.push(`${formattedRef} ${e.text}`);
+            // 修改需求 1: 批次複製格式 (太六6)
+            textBuffer.push(`${e.text} (${formattedRef})`);
           } catch(err) {
             console.warn("Skip invalid");
           }
       });
 
       if (textBuffer.length > 0) {
-        // 同步執行複製，避免被瀏覽器阻擋
         copyToClipboard(textBuffer.join('\n'), true); 
         clearSelection();
       }
@@ -761,9 +757,7 @@
   window.toggleKeywordSelection = toggleKeywordSelection;
   window.clearSelection = clearSelection;
 
-  // 統一複製函式
   function copyToClipboard(text, isBatch = false) {
-    // 建立臨時 Textarea (最穩定的方法)
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.style.position = 'fixed';
